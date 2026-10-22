@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
+import { AssistantDemo } from './AssistantDemo';
 import { BoardsDemo } from './BoardsDemo';
 import { ColourDemo } from './ColourDemo';
-import { FindDemo } from './FindDemo';
 import { LensDemo } from './LensDemo';
 import { PrivacyDemo } from './PrivacyDemo';
 import { SearchDemo } from './SearchDemo';
@@ -52,9 +52,9 @@ export function Features() {
           <p className="muted">Write your own lens for anything the built-in ones miss.</p>
         </Row>
 
-        <Row id="f-find" title="Bring in references with their credits." demo={<FindDemo />}>
-          <p>Paste a page URL to collect its images, or search open-licensed sources. Each reference keeps its author, licence and source link.</p>
-          <p className="muted">So you can always trace where an image came from.</p>
+        <Row id="f-assistant" title="Ask, and get references back." demo={<AssistantDemo />}>
+          <p>Ask for references or turn a brief into a design doc, with real images and links to look further.</p>
+          <p className="muted">Open images come with their author and licence. Matches from your own shelf come first.</p>
         </Row>
 
         <Row id="f-colour" title="Real colours, ready to copy." demo={<ColourDemo />} flip>

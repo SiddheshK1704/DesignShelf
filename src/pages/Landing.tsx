@@ -22,8 +22,8 @@ export function Landing() {
               <Link to="/library" className="btn btn--primary">
                 Open the library
               </Link>
-              <Link to="/find" className="btn">
-                Find references
+              <Link to="/assistant" className="btn">
+                Ask the assistant
               </Link>
             </div>
             <p className="hero__disciplines">

@@ -323,16 +323,111 @@
   }
 }
 
-/* ---------- 3. Find ---------- */
+/* ---------- 3. Assistant ---------- */
 
-.demo__find-form {
-  display: flex;
-  gap: var(--space-2);
+.demo__ask {
+  justify-self: end;
+  max-width: 88%;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 15px;
+  line-height: 1.5;
 }
 
-.demo__find-form input {
-  flex: 1;
-  min-width: 0;
+.demo__answer {
+  display: grid;
+  gap: var(--space-3);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--accent);
+  animation: tag-in 420ms var(--ease-out) both;
+}
+
+.demo__answer > p:first-child {
+  font-size: 15px;
+}
+
+.demo__directions {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.demo__directions li {
+  display: grid;
+  gap: 1px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.demo__dir-title {
+  font-weight: 600;
+}
+
+.demo__shelf {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.demo__shelf a {
+  display: block;
+  width: 64px;
+  aspect-ratio: 1;
+  border: 1px solid var(--line);
+  padding: 2px;
+  background: var(--bg);
+  transition: transform 200ms var(--ease-out);
+}
+
+.demo__shelf a:hover {
+  transform: translateY(-2px);
+}
+
+.demo__further {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.demo__further li {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.demo__further-q {
+  color: var(--muted);
+}
+
+.demo__further-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.demo__further-links a {
+  color: var(--text);
+  text-decoration-color: var(--line);
+}
+
+.demo__further-links a:hover {
+  text-decoration-color: var(--accent);
+}
+
+@media (max-width: 480px) {
+  .demo__further li {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
 }
 
 .demo__finds {

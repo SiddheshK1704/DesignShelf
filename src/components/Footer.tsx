@@ -8,7 +8,7 @@ const COLUMNS = [
     title: 'Use it',
     links: [
       { to: '/library', label: 'Library' },
-      { to: '/find', label: 'Find references' },
+      { to: '/assistant', label: 'Assistant' },
       { to: '/boards', label: 'Boards' },
     ],
   },

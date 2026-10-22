@@ -7,7 +7,7 @@ import './Navbar.css';
 
 const LINKS = [
   { to: '/library', label: 'Library' },
-  { to: '/find', label: 'Find references' },
+  { to: '/assistant', label: 'Assistant' },
   { to: '/boards', label: 'Boards' },
   { to: '/help', label: 'How it works' },
   { to: '/settings', label: 'Settings' },
