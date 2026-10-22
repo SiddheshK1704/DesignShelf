@@ -1,0 +1,9 @@
+.placeholder {
+  padding-block: var(--space-9);
+  display: grid;
+  gap: var(--space-5);
+}
+
+.placeholder h1 {
+  font-size: var(--step-h1);
+}

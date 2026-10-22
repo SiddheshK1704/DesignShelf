@@ -1,0 +1,122 @@
+.theme-switch {
+  display: inline-grid;
+  place-items: center;
+  /* 44px hit area around a 56x28 track. */
+  min-width: 64px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.theme-switch:focus-visible {
+  outline: none;
+}
+
+.theme-switch:focus-visible .theme-switch__track {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.theme-switch__track {
+  position: relative;
+  display: block;
+  width: 56px;
+  height: 28px;
+  border-radius: 14px;
+  background: var(--switch-track);
+  border: 1px solid var(--line);
+  box-shadow:
+    inset 0 2px 4px rgb(0 0 0 / 0.45),
+    inset 0 -1px 0 rgb(255 255 255 / 0.04);
+}
+
+[data-theme='light'] .theme-switch__track {
+  box-shadow:
+    inset 0 2px 3px rgb(0 0 0 / 0.18),
+    inset 0 -1px 0 rgb(255 255 255 / 0.6);
+}
+
+/* Engraved glyphs: a dark cut with a 1px highlight on the lower edge. */
+.theme-switch__glyph {
+  position: absolute;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  margin-top: -6.5px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.55;
+  filter: drop-shadow(0 1px 0 rgb(255 255 255 / 0.07));
+  transition:
+    stroke 200ms var(--ease-out),
+    opacity 200ms var(--ease-out);
+}
+
+[data-theme='light'] .theme-switch__glyph {
+  filter: drop-shadow(0 1px 0 rgb(255 255 255 / 0.85));
+}
+
+.theme-switch__glyph--moon {
+  left: 7px;
+}
+
+.theme-switch__glyph--sun {
+  right: 7px;
+}
+
+.theme-switch[data-state='dark'] .theme-switch__glyph--moon,
+.theme-switch[data-state='light'] .theme-switch__glyph--sun {
+  stroke: var(--accent);
+  opacity: 1;
+}
+
+.theme-switch__glyph--moon path {
+  fill: none;
+}
+
+/* Ridged knob: vertical grooves on a domed face. */
+.theme-switch__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgb(0 0 0 / 0.22) 0 1px,
+      rgb(255 255 255 / 0.08) 1px 2px,
+      transparent 2px 3.5px
+    ) center / 10px 10px no-repeat,
+    radial-gradient(circle at 35% 30%, var(--switch-knob-hi), var(--switch-knob-lo));
+  border: 1px solid rgb(0 0 0 / 0.35);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.5),
+    inset 0 1px 0 rgb(255 255 255 / 0.18);
+  transform: translateX(0);
+  transition: transform 340ms var(--ease-spring);
+}
+
+/* Dark: knob rests right so the lit moon on the left shows. */
+.theme-switch[data-state='dark'] .theme-switch__knob {
+  transform: translateX(28px);
+}
+
+.theme-switch:active .theme-switch__knob {
+  box-shadow:
+    0 0 1px rgb(0 0 0 / 0.5),
+    inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-switch__knob {
+    transition: none;
+  }
+}

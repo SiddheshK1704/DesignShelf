@@ -1,0 +1,156 @@
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--nav-bg);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+  border-bottom: 1px solid var(--line);
+}
+
+.nav__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  min-height: var(--nav-h);
+}
+
+.nav__links ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: var(--space-1);
+}
+
+.nav__link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-inline: var(--space-3);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 15px;
+  white-space: nowrap;
+  transition: color 160ms var(--ease-out);
+}
+
+.nav__link:hover {
+  color: var(--text);
+}
+
+.nav__link::after {
+  content: '';
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: 9px;
+  height: 1px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 220ms var(--ease-out);
+}
+
+.nav__link.active {
+  color: var(--text);
+}
+
+.nav__link.active::after {
+  transform: scaleX(1);
+}
+
+.nav__end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.nav__menu-btn {
+  display: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+  place-items: center;
+}
+
+/* Two hairlines that fold into an X. */
+.nav__menu-icon,
+.nav__menu-icon::before {
+  display: block;
+  width: 18px;
+  height: 1.5px;
+  background: var(--text);
+  transition: transform 220ms var(--ease-out);
+}
+
+.nav__menu-icon {
+  position: relative;
+  transform: translateY(-3px);
+}
+
+.nav__menu-icon::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+}
+
+.nav[data-open='true'] .nav__menu-icon {
+  transform: translateY(0) rotate(45deg);
+}
+
+.nav[data-open='true'] .nav__menu-icon::before {
+  transform: translateY(-6px) rotate(-90deg);
+}
+
+/* Mobile: links fold into a panel under the bar. */
+@media (max-width: 899px) {
+  .nav__menu-btn {
+    display: grid;
+  }
+
+  .nav__links {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    display: none;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    padding: var(--space-3) var(--gutter) var(--space-5);
+  }
+
+  .nav[data-open='true'] .nav__links {
+    display: block;
+  }
+
+  .nav__links ul {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .nav__link {
+    width: 100%;
+    min-height: 52px;
+    padding-inline: 0;
+    font-family: var(--font-display);
+    font-stretch: 112%;
+    font-weight: 700;
+    font-size: 24px;
+    letter-spacing: -0.02em;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .nav__link::after {
+    left: 0;
+    right: auto;
+    width: 24px;
+    bottom: 12px;
+  }
+}

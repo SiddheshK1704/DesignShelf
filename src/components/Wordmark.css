@@ -1,0 +1,43 @@
+.wordmark {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  text-decoration: none;
+  color: var(--text);
+  padding-block: 4px;
+}
+
+.wordmark__text {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-stretch: 118%;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+
+/* The shelf edge: a thin line that overhangs the letters slightly. */
+.wordmark__shelf {
+  display: block;
+  height: 1px;
+  margin-inline: -3px -6px;
+  background: var(--text);
+  position: relative;
+}
+
+.wordmark__shelf::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 6px;
+  height: 1px;
+  background: var(--accent);
+  transition: width 260ms var(--ease-out);
+}
+
+.wordmark:hover .wordmark__shelf::after {
+  width: 100%;
+}

@@ -1,0 +1,66 @@
+/* Design tokens. Colours switch on [data-theme]; everything else is shared. */
+
+:root,
+[data-theme='dark'] {
+  --bg: #0d0e10;
+  --surface: #15171a;
+  --surface-2: #1c1f23;
+  --line: #2b2f35;
+  --text: #e9eaec;
+  --muted: #8a9099;
+  --accent: #e3a94a;
+  /* Text placed on a solid --text fill (primary buttons). */
+  --on-text: #0d0e10;
+  --nav-bg: rgb(13 14 16 / 0.72);
+  --switch-track: #0a0b0c;
+  --switch-knob-hi: #4a4f57;
+  --switch-knob-lo: #2a2d33;
+  --grain-opacity: 0.05;
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
+  --bg: #ecedef;
+  --surface: #f6f6f7;
+  --surface-2: #e2e4e7;
+  --line: #c9cdd3;
+  --text: #101215;
+  --muted: #5e656e;
+  --accent: #b8791a;
+  --on-text: #ecedef;
+  --nav-bg: rgb(236 237 239 / 0.74);
+  --switch-track: #d4d7dc;
+  --switch-knob-hi: #ffffff;
+  --switch-knob-lo: #d9dce0;
+  --grain-opacity: 0.04;
+  color-scheme: light;
+}
+
+:root {
+  --font-display: 'Archivo Variable', 'Archivo', 'Arial Narrow', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --step-hero: clamp(56px, 10vw, 168px);
+  --step-h1: clamp(40px, 6vw, 88px);
+  --step-h2: clamp(30px, 4vw, 56px);
+  --step-h3: clamp(20px, 2vw, 26px);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 72px;
+  --space-9: 112px;
+
+  --gutter: clamp(16px, 4vw, 48px);
+  --measure: 68ch;
+  --nav-h: 64px;
+  --radius: 2px;
+
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}

@@ -1,0 +1,32 @@
+{
+  "name": "design-shelf",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Find any reference by feel.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SiddheshK1704/DesignShelf.git"
+  },
+  "dependencies": {
+    "@fontsource-variable/archivo": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.4"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  }
+}
