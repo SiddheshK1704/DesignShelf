@@ -1013,3 +1013,12 @@
   border: 0;
   padding: 0;
 }
+
+.set__fast {
+  align-items: flex-start;
+  max-width: 62ch;
+}
+
+.set__fast input {
+  margin-top: 4px;
+}

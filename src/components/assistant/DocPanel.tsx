@@ -79,6 +79,7 @@ export function DocPanel() {
       const boardRecords = boardIds.map((id) => images.find((i) => i.id === id)).filter((i): i is NonNullable<typeof i> => Boolean(i));
 
       setStage('writing');
+      let refs: Promise<string[]> | undefined;
       const inlineUploads = await Promise.all(uploads.map((u) => toAiImage(u.file)));
       // Up to four board images go along as pictures, the rest as text notes.
       const boardInline = (
@@ -98,9 +99,13 @@ export function DocPanel() {
         },
         setStage,
         (ms) => setWaitUntil(Date.now() + ms),
+        // Gather shelf references while the diagram is being checked.
+        (draft) => {
+          refs = pickReferences(images, brief, draft, boardRecords.map((r) => r.id), Boolean(settings.geminiKey), store);
+        },
       );
       setStage('references');
-      const shelfIds = await pickReferences(images, brief, doc, boardRecords.map((r) => r.id), Boolean(settings.geminiKey), store);
+      const shelfIds = await (refs ?? pickReferences(images, brief, doc, boardRecords.map((r) => r.id), Boolean(settings.geminiKey), store));
       const now = Date.now();
       setCurrent({
         saved: { id: newId(), title: doc.title, brief: brief.trim(), lensId, boardId: board?.id, doc, shelfIds, diagram, createdAt: now, updatedAt: now },

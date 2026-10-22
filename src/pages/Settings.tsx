@@ -180,6 +180,13 @@ function ModelsSection() {
               onChange={(embed) => updateSettings({ models: { ...s.models, embed } })}
             />
           </div>
+          <label className="check set__fast">
+            <input type="checkbox" checked={s.fastMode} onChange={(e) => updateSettings({ fastMode: e.target.checked })} />
+            <span>
+              Faster answers
+              <span className="field__hint"> Turns the model’s thinking off or down. Replies come much sooner; tags and answers are usually just as good. Turn it off for slower, more considered design docs.</span>
+            </span>
+          </label>
           <div className="set__actions">
             <button type="button" className="btn btn--quiet" onClick={detect} disabled={loading}>
               {loading ? 'Checking…' : 'Refresh model list'}

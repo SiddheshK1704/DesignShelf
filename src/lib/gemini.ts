@@ -157,23 +157,61 @@ export interface Turn {
   parts: Part[];
 }
 
+/**
+ * Thinking makes newer models slower, and structured tasks like tagging
+ * barely need it. In fast mode it's turned off (2.5 Flash), kept to the
+ * minimum (2.5 Pro can't turn it off) or set low (Gemini 3).
+ */
+function thinkingFor(model: string): Record<string, unknown> | undefined {
+  if (!getSettings().fastMode || noThinkingConfig.has(model)) return undefined;
+  if (/^gemini-2\.5-flash/.test(model)) return { thinkingBudget: 0 };
+  if (/^gemini-2\.5-pro/.test(model)) return { thinkingBudget: 128 };
+  if (/^gemini-[3-9]/.test(model)) return { thinkingLevel: 'low' };
+  return undefined;
+}
+
+/** Models that rejected a thinking setting; they're asked without one from then on. */
+const noThinkingConfig = new Set<string>();
+
+type GenerateResponse = {
+  candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+  promptFeedback?: { blockReason?: string };
+};
+
 export async function generateJson<T>(
   parts: Part[],
   schema: Schema,
   opts: { temperature?: number; system?: string; history?: Turn[] } = {},
 ): Promise<T> {
   const { generate } = await ensureModels();
-  const data = await call<{
-    candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
-    promptFeedback?: { blockReason?: string };
-  }>(`models/${generate}:generateContent`, {
-    method: 'POST',
-    body: JSON.stringify({
-      ...(opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {}),
-      contents: [...(opts.history ?? []), { role: 'user', parts }],
-      generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: opts.temperature ?? 0.4 },
-    }),
-  });
+  const request = (thinkingConfig?: Record<string, unknown>) =>
+    call<GenerateResponse>(`models/${generate}:generateContent`, {
+      method: 'POST',
+      body: JSON.stringify({
+        ...(opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {}),
+        contents: [...(opts.history ?? []), { role: 'user', parts }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: schema,
+          temperature: opts.temperature ?? 0.4,
+          ...(thinkingConfig ? { thinkingConfig } : {}),
+        },
+      }),
+    });
+
+  const thinking = thinkingFor(generate);
+  let data: GenerateResponse;
+  try {
+    data = await request(thinking);
+  } catch (err) {
+    // A model that doesn't accept this thinking setting: remember, and ask again without it.
+    if (thinking && err instanceof GeminiError && err.status === 400 && /think/i.test(err.message)) {
+      noThinkingConfig.add(generate);
+      data = await request();
+    } else {
+      throw err;
+    }
+  }
   if (data.promptFeedback?.blockReason) {
     throw new GeminiError(`Gemini declined this request (${data.promptFeedback.blockReason}). Try a different image or wording.`);
   }

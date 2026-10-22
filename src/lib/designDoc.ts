@@ -179,6 +179,8 @@ export async function writeDoc(
   input: DocInput,
   onStage: (s: Stage) => void,
   onWait?: (ms: number) => void,
+  /** Called as soon as the draft is written, so slower follow-up work can start in parallel. */
+  onDraft?: (doc: DesignDoc) => void,
 ): Promise<{ doc: DesignDoc; diagram: SavedDoc['diagram'] }> {
   onStage('writing');
   const parts: Part[] = [
@@ -190,6 +192,7 @@ export async function writeDoc(
     await withBackoff(() => generateJson<DesignDoc>(parts, DOC_SCHEMA, { system: SYSTEM, temperature: 0.5 }), onWait),
   );
 
+  onDraft?.(doc);
   onStage('checking');
   let error = doc.architecture.mermaid ? await checkMermaid(doc.architecture.mermaid) : 'The diagram was empty.';
   if (!error) return { doc, diagram: { ok: true } };

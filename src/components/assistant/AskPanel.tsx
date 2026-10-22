@@ -52,9 +52,11 @@ export function AskPanel() {
       // Only the last few exchanges go along as context.
       const history = getChat().history.slice(-8);
       const answer = await ask(userMsg.text, inline, history, (ms) => updateMsg(replyId, { waitingUntil: Date.now() + ms }));
-      const shelf = await shelfMatches(images, userMsg.text, answer, Boolean(settings.geminiKey), 6, store).catch(() => []);
-      updateMsg(replyId, { status: 'done', answer, shelf, waitingUntil: undefined });
+      // Show the answer straight away; shelf matches fill in when their searches finish.
+      updateMsg(replyId, { status: 'done', answer, shelf: undefined, waitingUntil: undefined });
       setChat((s) => ({ ...s, history: [...s.history, ...toHistory(userMsg.text, userMsg.attachments.length, answer)] }));
+      const shelf = await shelfMatches(images, userMsg.text, answer, Boolean(settings.geminiKey), 6, store).catch(() => []);
+      updateMsg(replyId, { shelf });
     } catch (err) {
       updateMsg(replyId, { status: 'error', error: (err as Error).message, waitingUntil: undefined });
     }
@@ -226,7 +228,13 @@ function Reply({
 
       <section className="answer__sec">
         <h3 className="answer__h">From your shelf</h3>
-        <ShelfMatches images={msg.shelf ?? []} libraryEmpty={libraryEmpty} onOpen={onOpen} />
+        {msg.shelf === undefined && !libraryEmpty ? (
+          <p className="muted" role="status">
+            <span className="spinner" aria-hidden="true" /> Finding matches on your shelf…
+          </p>
+        ) : (
+          <ShelfMatches images={msg.shelf ?? []} libraryEmpty={libraryEmpty} onOpen={onOpen} />
+        )}
       </section>
 
       {a.queries.length > 0 && (

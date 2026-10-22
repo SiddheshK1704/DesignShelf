@@ -111,8 +111,9 @@ export async function shelfMatches(
   if (!images.length) return [];
   const texts = [question, ...answer.queries.map((q) => q.query)].filter((t) => t.trim());
   const best = new Map<string, { image: ImageRecord; score: number }>();
-  for (const t of texts) {
-    const r = await search(images, t, { useEmbeddings, store });
+  // All searches at once: each needs its own embedding call, and they don't depend on each other.
+  const results = await Promise.all(texts.map((t) => search(images, t, { useEmbeddings, store })));
+  for (const r of results) {
     for (const h of r.hits) {
       const cur = best.get(h.image.id);
       if (!cur || h.score > cur.score) best.set(h.image.id, { image: h.image, score: h.score });
