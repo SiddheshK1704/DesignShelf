@@ -450,3 +450,52 @@
     animation: none;
   }
 }
+
+/* ---------- Password ---------- */
+
+.auth__pwhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: var(--space-3);
+}
+
+.auth__forgot {
+  font-size: 13px;
+}
+
+.auth__pwrow {
+  position: relative;
+}
+
+.auth__pwrow .auth__input {
+  padding-right: 64px;
+}
+
+.auth__show {
+  position: absolute;
+  right: 0;
+  bottom: 6px;
+  min-width: 56px;
+  min-height: 40px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.auth__show:hover {
+  color: var(--text);
+}
+
+.auth__error {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+
+.auth__error .auth__link {
+  font-size: 14px;
+}

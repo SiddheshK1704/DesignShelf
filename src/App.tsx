@@ -7,6 +7,7 @@ import { Landing } from './pages/Landing';
 import { Library } from './pages/Library';
 import { Placeholder } from './pages/Placeholder';
 import { Reference } from './pages/Reference';
+import { ResetPassword } from './pages/ResetPassword';
 import { Settings } from './pages/Settings';
 
 export function App() {
@@ -21,6 +22,7 @@ export function App() {
         <Route path="boards/:boardId" element={<BoardDetail />} />
         <Route path="help" element={<Help />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Placeholder title="Page not found" notFound />} />
       </Route>
     </Routes>
