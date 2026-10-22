@@ -1,26 +1,138 @@
-.hero-title {
-  font-family: var(--font-display);
-  font-size: var(--step-hero);
+/* ---------- Hero: split 50/50, full viewport ---------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: calc(100svh - var(--nav-h));
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.hero__copy {
+  container-type: inline-size;
+  display: flex;
+  align-items: center;
+  /* Line the copy up with the navbar's container edge on wide screens. */
+  padding-left: max(var(--gutter), calc((100vw - 1440px) / 2 + var(--gutter)));
+  padding-right: clamp(24px, 4vw, 64px);
+  padding-block: var(--space-8);
+}
+
+.hero__copy-inner {
+  display: grid;
+  gap: var(--space-6);
+  width: 100%;
+}
+
+.hero__title {
+  /* Spec scale, capped so "reference" always fits its half of the screen. */
+  font-size: min(clamp(56px, 10vw, 168px), 15.5cqi);
   font-stretch: 125%;
   font-weight: 860;
   line-height: 0.92;
   letter-spacing: -0.03em;
-  max-width: 12ch;
+  text-wrap: balance;
 }
 
-.landing-stub {
-  display: grid;
-  gap: var(--space-6);
-  padding-block: var(--space-9);
+.hero__sub {
+  font-size: clamp(17px, 1.35vw, 20px);
+  line-height: 1.55;
+  max-width: 44ch;
 }
 
-.landing-stub__sub {
-  font-size: clamp(17px, 1.4vw, 20px);
-  max-width: 46ch;
-}
-
-.landing-stub__actions {
+.hero__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
+}
+
+.hero__disciplines {
+  font-size: 14px;
+  color: var(--muted);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+  max-width: 46ch;
+}
+
+.hero__collage {
+  position: relative;
+  padding: 0 var(--gutter) 0 clamp(8px, 1.5vw, 24px);
+  border-left: 1px solid var(--line);
+  overflow: hidden;
+}
+
+/* Out of flow so the collage never sets the hero's height; the frame clips it. */
+.hero__collage .collage {
+  position: absolute;
+  top: -24px;
+  left: clamp(8px, 1.5vw, 24px);
+  right: var(--gutter);
+}
+
+/* Entrance: copy rises in, collage columns follow. */
+.hero__copy-inner > * {
+  animation: hero-rise 700ms var(--ease-out) both;
+}
+
+.hero__copy-inner > :nth-child(2) { animation-delay: 90ms; }
+.hero__copy-inner > :nth-child(3) { animation-delay: 160ms; }
+.hero__copy-inner > :nth-child(4) { animation-delay: 230ms; }
+
+.hero__collage .collage__col {
+  animation: hero-fade 900ms var(--ease-out) both;
+}
+
+.hero__collage .collage__col:nth-child(2) { animation-delay: 120ms; }
+.hero__collage .collage__col:nth-child(3) { animation-delay: 240ms; }
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+@keyframes hero-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- Stacked on small screens ---------- */
+
+@media (max-width: 899px) {
+  .hero {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .hero__copy {
+    padding: var(--space-8) var(--gutter) var(--space-7);
+  }
+
+  .hero__title {
+    font-size: clamp(44px, 15cqi, 120px);
+  }
+
+  .hero__collage {
+    height: min(130vw, 720px);
+    padding: 0 var(--gutter);
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .hero__collage .collage {
+    top: 0;
+    left: var(--gutter);
+  }
+}
+
+@media (max-width: 380px) {
+  .hero__title {
+    font-stretch: 112%;
+  }
+
+  .hero__actions .btn {
+    flex: 1 1 100%;
+  }
 }

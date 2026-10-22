@@ -1,0 +1,170 @@
+.collage {
+  --drift: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(14px, 2.4vw, 36px);
+  align-items: start;
+}
+
+.collage__col {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(14px, 1.8vw, 28px);
+  will-change: translate;
+}
+
+/* Outer columns sit high and drift up; the middle sits low and drifts down. */
+.collage__col:nth-child(1),
+.collage__col:nth-child(3) {
+  margin-top: -40px;
+  translate: 0 calc(var(--drift) * -0.09px);
+}
+
+.collage__col:nth-child(2) {
+  margin-top: 80px;
+  translate: 0 calc(var(--drift) * 0.07px);
+}
+
+/* ---------- Tile ---------- */
+
+.tile {
+  margin: 0;
+  padding: 6px 6px 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  transform: rotate(var(--tilt, 0deg));
+  transition:
+    transform 380ms var(--ease-out),
+    box-shadow 380ms var(--ease-out),
+    border-color 380ms var(--ease-out);
+}
+
+.tile__img {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.tile__img img,
+.tile__img .duotone {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tile__cap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 30px;
+  padding: 0 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.2;
+  color: var(--muted);
+}
+
+.tile__subject {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tile__swatches {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.tile__swatches i {
+  width: 9px;
+  height: 9px;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15);
+}
+
+/* Tags slide up over the image on hover. */
+.tile__tags {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  opacity: 0;
+  translate: 0 8px;
+  transition:
+    opacity 260ms var(--ease-out),
+    translate 320ms var(--ease-out);
+}
+
+.tile__tags li {
+  padding: 2px 7px;
+  background: rgb(13 14 16 / 0.82);
+  color: #e9eaec;
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: nowrap;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.tile__tags li.tile__credit {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: #c4c8cd;
+}
+
+@media (hover: hover) {
+  .tile:hover {
+    transform: translateY(-8px) rotate(var(--tilt, 0deg));
+    border-color: var(--muted);
+    box-shadow: 0 22px 32px -22px rgb(0 0 0 / 0.65);
+    z-index: 1;
+    position: relative;
+  }
+
+  .tile:hover .tile__tags {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .tile {
+    padding: 4px 4px 0;
+  }
+
+  .tile__cap {
+    min-height: 24px;
+    font-size: 9.5px;
+  }
+
+  .tile__swatches i {
+    width: 6px;
+    height: 6px;
+  }
+
+  .collage__col:nth-child(1),
+  .collage__col:nth-child(3) {
+    margin-top: -20px;
+  }
+
+  .collage__col:nth-child(2) {
+    margin-top: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .collage__col {
+    translate: none !important;
+  }
+}
