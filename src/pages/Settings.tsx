@@ -3,7 +3,7 @@ import { ConfirmDialog } from '../components/Dialog';
 import { useAuth } from '../components/AuthProvider';
 import { useLibrary } from '../components/library/LibraryProvider';
 import { forgetBlobUrls } from '../components/library/useBlobUrl';
-import { listModels, pickModels, type GeminiModel } from '../lib/gemini';
+import { listModels, pickModels, resetModelLimits, type GeminiModel } from '../lib/gemini';
 import { enqueue } from '../lib/ingest';
 import { BASE_GROUPS, BUILT_IN_LENSES, slugKey } from '../lib/lenses';
 import { downloadBlob, exportLibrary, importLibrary } from '../lib/portable';
@@ -51,6 +51,8 @@ function KeySection() {
     try {
       const models = await listModels(key);
       const picked = pickModels(models);
+      // Limits remembered for the old key don't apply to a new one.
+      resetModelLimits();
       updateSettings({
         geminiKey: key,
         models: { ...s.models, generate: s.models.generate ?? picked.generate[0]?.name, embed: s.models.embed ?? picked.embed[0]?.name },
@@ -170,7 +172,11 @@ function ModelsSection() {
               hint="Reads images, writes tags and answers. Automatic always uses the newest Flash model your key can reach."
               value={s.models.generateAuto !== false ? 'auto' : s.models.generate}
               options={picked?.generate ?? []}
-              auto={picked?.generate[0] ? `Automatic · ${picked.generate[0].displayName}` : 'Automatic'}
+              auto={(() => {
+                // Show the model Automatic is using now (it may have moved past one whose quota ran out).
+                const current = picked?.generate.find((m) => m.name === s.models.generate) ?? picked?.generate[0];
+                return current ? `Automatic · ${current.displayName}` : 'Automatic';
+              })()}
               onChange={(v) =>
                 updateSettings({
                   models:

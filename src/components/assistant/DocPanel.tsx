@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { fileName, pickReferences, toMarkdown, vocabulary, writeDoc, type Stage } from '../../lib/designDoc';
+import { getGeminiWait, subscribeGeminiWait } from '../../lib/gemini';
 import { ACCEPTED_TYPES, toAiImage } from '../../lib/image';
 import { downloadBlob } from '../../lib/portable';
 import { allLenses, findLens, useSettings } from '../../lib/settings';
@@ -42,13 +43,14 @@ export function DocPanel() {
   const [open, setOpen] = useState<{ id: string; order: string[] } | null>(null);
   const docRef = useRef<HTMLDivElement>(null);
 
-  // Tick the rate-limit countdown.
+  // Tick the rate-limit countdown (this request's retries, or the shared queue waiting out a limit).
+  const queueWait = useSyncExternalStore(subscribeGeminiWait, getGeminiWait);
   const [, setTick] = useState(0);
   useEffect(() => {
-    if (!waitUntil) return;
+    if (!waitUntil && !queueWait) return;
     const t = setInterval(() => setTick((n) => n + 1), 500);
     return () => clearInterval(t);
-  }, [waitUntil]);
+  }, [waitUntil, queueWait]);
 
   // Saved docs, kept fresh when the store changes.
   useEffect(() => {
@@ -157,7 +159,8 @@ export function DocPanel() {
   }
 
   const busy = stage !== null;
-  const waitSecs = waitUntil ? Math.max(0, Math.ceil((waitUntil - Date.now()) / 1000)) : 0;
+  const until = Math.max(waitUntil ?? 0, busy ? queueWait : 0);
+  const waitSecs = until ? Math.max(0, Math.ceil((until - Date.now()) / 1000)) : 0;
 
   return (
     <div className="docmode">

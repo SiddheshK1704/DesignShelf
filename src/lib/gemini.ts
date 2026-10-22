@@ -9,13 +9,28 @@ import type { Lens, TagGroups } from './types';
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
 export const EMBED_DIMS = 768;
 
+/** What a 429 said about the quota that was hit. */
+export interface QuotaInfo {
+  /** The limit resets daily (waiting a minute won't help). */
+  perDay: boolean;
+  /** The limit itself; 0 means this model has no free requests on this key at all. */
+  limit?: number;
+  model?: string;
+}
+
 export class GeminiError extends Error {
   constructor(
     message: string,
     public status = 0,
     public retryAfterMs?: number,
+    public quota?: QuotaInfo,
   ) {
     super(message);
+  }
+
+  /** A quota that waiting won't fix: none at all for this model, or today's used up. */
+  get exhausted(): boolean {
+    return this.status === 429 && Boolean(this.quota && (this.quota.limit === 0 || this.quota.perDay));
   }
 }
 
@@ -25,9 +40,16 @@ export interface GeminiModel {
   methods: string[];
 }
 
+interface ErrorDetail {
+  '@type'?: string;
+  retryDelay?: string;
+  reason?: string;
+  violations?: { quotaId?: string; quotaValue?: string; quotaDimensions?: { model?: string } }[];
+}
+
 /** Turns API failures into messages that say what happened and how to fix it. */
 async function toError(res: Response): Promise<GeminiError> {
-  let body: { error?: { message?: string; status?: string; details?: { '@type'?: string; retryDelay?: string; reason?: string }[] } } = {};
+  let body: { error?: { message?: string; status?: string; details?: ErrorDetail[] } } = {};
   try {
     body = await res.json();
   } catch {
@@ -46,7 +68,21 @@ async function toError(res: Response): Promise<GeminiError> {
     return new GeminiError(`This key isn’t allowed to use the Gemini API (${raw}). Check the key’s restrictions in Google AI Studio.`, 403);
   }
   if (res.status === 429) {
-    return new GeminiError('Gemini’s rate limit was reached. Waiting a moment before trying again.', 429, retryAfterMs);
+    // Which quota was hit: per minute (wait), per day, or none at all for this model.
+    const v = details.flatMap((d) => d.violations ?? []);
+    const perDay = v.some((x) => /PerDay/i.test(x.quotaId ?? ''));
+    const limits = v.map((x) => Number(x.quotaValue)).filter((n) => !Number.isNaN(n));
+    const limitFromText = raw.match(/limit:\s*(\d+)/)?.[1];
+    const limit = limits.length ? Math.min(...limits) : limitFromText !== undefined ? Number(limitFromText) : undefined;
+    const model = v.find((x) => x.quotaDimensions?.model)?.quotaDimensions?.model ?? raw.match(/model:\s*([\w.-]+)/)?.[1];
+    const quota: QuotaInfo = { perDay, limit, model };
+    const message =
+      limit === 0
+        ? `Your Gemini key has no free requests for ${model ?? 'this model'}.`
+        : perDay
+          ? `Today’s free Gemini requests for ${model ?? 'this model'} are used up. They reset tomorrow.`
+          : 'Gemini’s per-minute limit was reached. Waiting before trying again.';
+    return new GeminiError(message, 429, retryAfterMs, quota);
   }
   if (res.status === 404) {
     return new GeminiError(`The selected model isn’t available to this key (${raw}). Pick another model in Settings.`, 404);
@@ -58,29 +94,61 @@ async function toError(res: Response): Promise<GeminiError> {
 }
 
 /**
- * At most this many Gemini requests are in flight at once, across the whole
- * app (tagging, Ask, design docs). The rest wait their turn, which keeps a
- * busy moment from tripping the per-minute rate limit. Backoff waits happen
- * outside a slot, so a sleeping retry never blocks other requests.
+ * One Gemini request at a time, across the whole app. Requests from what
+ * the user is waiting on (Ask, design docs) go ahead of background tagging.
+ * When Gemini asks us to wait, every queued request waits together, so a
+ * rate limit is never hit again by the next request in line.
  */
-const MAX_IN_FLIGHT = 2;
-let inFlight = 0;
-const waiting: (() => void)[] = [];
+export type Priority = 'now' | 'background';
+const queues: Record<Priority, (() => void)[]> = { now: [], background: [] };
+let busy = false;
+/** Per model: hold requests until this time after a per-minute 429. */
+const pausedUntil = new Map<string, number>();
 
-async function slot<T>(fn: () => Promise<T>): Promise<T> {
-  if (inFlight >= MAX_IN_FLIGHT) await new Promise<void>((resolve) => waiting.push(resolve));
-  inFlight++;
+/** When the request at the front of the queue is waiting out a limit, until when. Screens show a countdown. */
+let waitingUntil = 0;
+const waitListeners = new Set<() => void>();
+function setWaiting(until: number) {
+  waitingUntil = until;
+  waitListeners.forEach((l) => l());
+}
+export function getGeminiWait(): number {
+  return waitingUntil;
+}
+export function subscribeGeminiWait(fn: () => void) {
+  waitListeners.add(fn);
+  return () => waitListeners.delete(fn);
+}
+
+async function slot<T>(priority: Priority, model: string, fn: () => Promise<T>): Promise<T> {
+  if (busy) await new Promise<void>((resolve) => queues[priority].push(resolve));
+  busy = true;
   try {
+    const wait = (pausedUntil.get(model) ?? 0) - Date.now();
+    if (wait > 0) {
+      setWaiting(Date.now() + wait);
+      try {
+        await sleep(wait);
+      } finally {
+        setWaiting(0);
+      }
+    }
     return await fn();
   } finally {
-    inFlight--;
-    waiting.shift()?.();
+    busy = false;
+    (queues.now.shift() ?? queues.background.shift())?.();
   }
 }
 
-async function call<T>(path: string, init: RequestInit = {}, key = getSettings().geminiKey): Promise<T> {
+/** How long requests to this model should hold off after a per-minute 429. */
+function pause(model: string, ms: number) {
+  pausedUntil.set(model, Math.max(pausedUntil.get(model) ?? 0, Date.now() + ms));
+}
+
+async function call<T>(path: string, init: RequestInit = {}, key = getSettings().geminiKey, priority: Priority = 'now'): Promise<T> {
   if (!key) throw new GeminiError('Add your Gemini API key in Settings to use AI tagging and search by meaning.', 0);
-  return slot(async () => {
+  const model = path.match(/^models\/([^:/?]+):/)?.[1] ?? 'list';
+  return slot(priority, model, async () => {
     let res: Response;
     try {
       res = await fetch(`${BASE}/${path}`, {
@@ -90,7 +158,11 @@ async function call<T>(path: string, init: RequestInit = {}, key = getSettings()
     } catch {
       throw new GeminiError('Could not reach Gemini. Check your internet connection and try again.', 0);
     }
-    if (!res.ok) throw await toError(res);
+    if (!res.ok) {
+      const err = await toError(res);
+      if (err.status === 429 && !err.exhausted) pause(model, err.retryAfterMs ?? 15_000);
+      throw err;
+    }
     return res.json() as Promise<T>;
   });
 }
@@ -98,18 +170,19 @@ async function call<T>(path: string, init: RequestInit = {}, key = getSettings()
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Retries on 429 and 5xx with exponential backoff (or the server's
- * suggested delay). `onWait` reports how long it's waiting.
+ * Retries per-minute rate limits and 5xx errors, waiting as long as Gemini
+ * asks. Quotas that waiting can't fix (none for the model, or today's used
+ * up) are not retried. `onWait` reports how long it's waiting.
  */
-export async function withBackoff<T>(fn: () => Promise<T>, onWait?: (ms: number) => void, tries = 5): Promise<T> {
+export async function withBackoff<T>(fn: () => Promise<T>, onWait?: (ms: number) => void, tries = 4): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await fn();
     } catch (err) {
       const e = err as GeminiError;
-      const retryable = e instanceof GeminiError && (e.status === 429 || e.status >= 500);
+      const retryable = e instanceof GeminiError && ((e.status === 429 && !e.exhausted) || e.status >= 500);
       if (!retryable || attempt >= tries - 1) throw err;
-      const wait = Math.min(60_000, e.retryAfterMs ?? 1000 * 2 ** attempt + Math.random() * 400);
+      const wait = Math.min(65_000, e.retryAfterMs ?? 1000 * 2 ** attempt + Math.random() * 400);
       onWait?.(wait);
       await sleep(wait);
     }
@@ -158,52 +231,123 @@ export function pickModels(models: GeminiModel[]) {
   return { generate, embed };
 }
 
-/** The model list is checked once per page load, so new releases are picked up without a reload loop. */
-let checkedThisSession = false;
+/* ---------- Which model to use ---------- */
+
+const LIST_KEY = 'designshelf.modelList';
+const UNAVAILABLE_KEY = 'designshelf.unavailableModels';
+const LIST_MAX_AGE = 12 * 60 * 60 * 1000;
+
+interface ModelList {
+  at: number;
+  generate: string[];
+  embed: string[];
+}
+
+function readJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Storage blocked: keep it in memory only.
+  }
+}
+
+let list: ModelList | null = readJson<ModelList | null>(LIST_KEY, null);
+let listing: Promise<ModelList> | null = null;
+
+/** The ranked model list, refreshed at most twice a day, shared by everyone who asks at once. */
+async function modelList(): Promise<ModelList> {
+  if (list && Date.now() - list.at < LIST_MAX_AGE) return list;
+  listing ??= listModels()
+    .then((all) => {
+      const found = pickModels(all);
+      list = { at: Date.now(), generate: found.generate.map((m) => m.name), embed: found.embed.map((m) => m.name) };
+      writeJson(LIST_KEY, list);
+      return list;
+    })
+    .finally(() => (listing = null));
+  return listing;
+}
+
+/** Models whose quota is used up (until a time), remembered across reloads. */
+let unavailable: Record<string, number> = readJson(UNAVAILABLE_KEY, {});
+/** Models that just hit a per-minute limit (until a time). */
+const cooling = new Map<string, number>();
+
+/** Record a rate limit for a model, so the next request can pick another. */
+function noteLimit(model: string, err: GeminiError) {
+  if (err.exhausted) {
+    // No free quota at all: skip for a week. Daily quota used: skip for a day.
+    unavailable = { ...unavailable, [model]: Date.now() + (err.quota?.limit === 0 ? 7 : 1) * 24 * 60 * 60 * 1000 };
+    writeJson(UNAVAILABLE_KEY, unavailable);
+  } else {
+    cooling.set(model, Date.now() + (err.retryAfterMs ?? 30_000));
+  }
+}
+
+/** Models that can be tried right now, best first. */
+function usable(names: string[]): { ready: string[]; all: string[] } {
+  const now = Date.now();
+  const all = names.filter((n) => !(unavailable[n] > now));
+  return { all, ready: all.filter((n) => !((cooling.get(n) ?? 0) > now)) };
+}
 
 /**
  * The models to use. Unless the user picked one by hand, the generation
- * model follows the newest Flash model the key can use. The embedding model
- * stays fixed once chosen: changing it would make existing search vectors
- * incomparable.
+ * model is the newest Flash model the key can use right now: models whose
+ * quota is used up, or that just hit a per-minute limit, are skipped in
+ * favour of the next best. The embedding model stays fixed once chosen,
+ * because changing it would make existing search vectors incomparable.
  */
 export async function ensureModels(): Promise<{ generate: string; embed: string }> {
   const { models } = getSettings();
   const auto = models.generateAuto !== false;
-  if (models.generate && models.embed && (!auto || checkedThisSession)) {
-    return { generate: models.generate, embed: models.embed };
-  }
-  // Callers that arrive together share one model-list lookup.
-  modelsLookup ??= resolveModels().finally(() => (modelsLookup = null));
-  return modelsLookup;
-}
+  if (!auto && models.generate && models.embed) return { generate: models.generate, embed: models.embed };
 
-let modelsLookup: Promise<{ generate: string; embed: string }> | null = null;
-
-async function resolveModels(): Promise<{ generate: string; embed: string }> {
-  const { models } = getSettings();
-  const auto = models.generateAuto !== false;
-  if (models.generate && models.embed && (!auto || checkedThisSession)) {
-    return { generate: models.generate, embed: models.embed };
-  }
-
-  let found: ReturnType<typeof pickModels> | null = null;
+  let ranked: ModelList;
   try {
-    found = pickModels(await listModels());
-    checkedThisSession = true;
+    ranked = await modelList();
   } catch (err) {
-    // Couldn't refresh the list: keep using what we have, if anything.
+    // Couldn't read the list: keep using what we have, if anything.
     if (models.generate && models.embed) return { generate: models.generate, embed: models.embed };
     throw err;
   }
 
-  const generate = (auto ? found.generate[0]?.name : undefined) ?? models.generate ?? found.generate[0]?.name;
-  const embed = models.embed ?? found.embed[0]?.name;
+  const { ready, all } = usable(ranked.generate);
+  const generate = (auto ? ready[0] ?? all[0] : undefined) ?? models.generate ?? ranked.generate[0];
+  const embed = models.embed ?? ranked.embed[0];
   if (!generate || !embed) {
+    if (auto && ranked.generate.length && !all.length) {
+      throw new GeminiError(
+        'Every Gemini model on your key has used up its free requests for now. They reset daily; you can also add billing to the key in Google AI Studio.',
+        429,
+      );
+    }
     throw new GeminiError('No suitable Gemini models are available to this key. Check the key in Google AI Studio.');
   }
   if (generate !== models.generate || embed !== models.embed) updateSettings({ models: { ...models, generate, embed } });
   return { generate, embed };
+}
+
+/** Forget remembered limits (e.g. after a new key is saved). */
+export function resetModelLimits() {
+  unavailable = {};
+  cooling.clear();
+  list = null;
+  writeJson(UNAVAILABLE_KEY, {});
+  try {
+    localStorage.removeItem(LIST_KEY);
+  } catch {
+    // Nothing stored.
+  }
 }
 
 /* ---------- Structured generation ---------- */
@@ -228,18 +372,41 @@ type GenerateResponse = {
 export async function generateJson<T>(
   parts: Part[],
   schema: Schema,
-  opts: { temperature?: number; system?: string; history?: Turn[] } = {},
+  opts: { temperature?: number; system?: string; history?: Turn[]; priority?: Priority } = {},
 ): Promise<T> {
-  const { generate } = await ensureModels();
-  const data = await call<GenerateResponse>(`models/${generate}:generateContent`, {
-      method: 'POST',
-      body: JSON.stringify({
-        ...(opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {}),
-        contents: [...(opts.history ?? []), { role: 'user', parts }],
-        // No thinking settings: each model thinks at its default level for the best answers.
-        generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: opts.temperature ?? 0.4 },
-      }),
-    });
+  const body = JSON.stringify({
+    ...(opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {}),
+    contents: [...(opts.history ?? []), { role: 'user', parts }],
+    // No thinking settings: each model thinks at its default level for the best answers.
+    generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: opts.temperature ?? 0.4 },
+  });
+  const auto = getSettings().models.generateAuto !== false;
+
+  let data: GenerateResponse | undefined;
+  for (let attempt = 0; !data; attempt++) {
+    const { generate } = await ensureModels();
+    try {
+      data = await call<GenerateResponse>(`models/${generate}:generateContent`, { method: 'POST', body }, undefined, opts.priority);
+    } catch (err) {
+      if (!(err instanceof GeminiError) || err.status !== 429) throw err;
+      noteLimit(generate, err);
+      // Automatic: go straight to the next model that can answer now, instead of waiting.
+      if (auto && attempt < 6) {
+        const next = (await ensureModels()).generate;
+        if (next !== generate) continue;
+      }
+      if (!auto && err.exhausted) {
+        throw new GeminiError(
+          `${err.message} You chose this model in Settings; pick another there, or switch to Automatic so Design Shelf can use one that works.`,
+          429,
+          err.retryAfterMs,
+          err.quota,
+        );
+      }
+      // Nothing else to switch to: per-minute limits are waited out by withBackoff.
+      throw err;
+    }
+  }
   if (data.promptFeedback?.blockReason) {
     throw new GeminiError(`Gemini declined this request (${data.promptFeedback.blockReason}). Try a different image or wording.`);
   }
@@ -294,7 +461,7 @@ export async function tagImage(image: { mimeType: string; data: string }, lens: 
     'Name colours plainly (warm grey, sage green, deep navy). Be concrete. No brand names, no hype.',
     `Groups: ${groups.map((g) => `${g.key} (${g.hint})`).join('; ')}.`,
   ].join('\n');
-  const out = await generateJson<TagResult>([{ inlineData: image }, { text: prompt }], tagSchema(lens), { temperature: 0.3 });
+  const out = await generateJson<TagResult>([{ inlineData: image }, { text: prompt }], tagSchema(lens), { temperature: 0.3, priority: 'background' });
   const tags: TagGroups = {};
   for (const g of groups) {
     tags[g.key] = [...new Set((out.tags?.[g.key] ?? []).map((t) => t.trim().toLowerCase()).filter(Boolean))].slice(0, 8);
@@ -336,6 +503,8 @@ export async function embedMany(texts: string[], task: 'RETRIEVAL_DOCUMENT' | 'R
 
 export async function embed(text: string, task: 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY'): Promise<{ values: number[]; model: string }> {
   const { embed: model } = await ensureModels();
+  // Indexing images is background work; query embeddings are for someone waiting.
+  const priority: Priority = task === 'RETRIEVAL_DOCUMENT' ? 'background' : 'now';
   const data = await call<{ embedding?: { values?: number[] } }>(`models/${model}:embedContent`, {
     method: 'POST',
     body: JSON.stringify({
@@ -344,7 +513,7 @@ export async function embed(text: string, task: 'RETRIEVAL_DOCUMENT' | 'RETRIEVA
       taskType: task,
       outputDimensionality: EMBED_DIMS,
     }),
-  });
+  }, undefined, priority);
   const values = data.embedding?.values;
   if (!values?.length) throw new GeminiError('Gemini returned an empty embedding. Try again.');
   return { values: normalise(values.slice(0, EMBED_DIMS)), model };

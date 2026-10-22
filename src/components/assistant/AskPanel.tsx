@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { ask, shelfMatches, toHistory } from '../../lib/assistant';
+import { getGeminiWait, subscribeGeminiWait } from '../../lib/gemini';
 import { toAiImage, ACCEPTED_TYPES } from '../../lib/image';
 import { addFiles } from '../../lib/ingest';
 import { prefersReducedMotion } from '../../lib/theme';
@@ -181,14 +182,17 @@ function Reply({
   onOpen: (id: string, order: string[]) => void;
 }) {
   const [now, setNow] = useState(Date.now());
+  // Waits come from this request's retries or from the shared queue holding for a rate limit.
+  const queueWait = useSyncExternalStore(subscribeGeminiWait, getGeminiWait);
+  const until = Math.max(msg.waitingUntil ?? 0, msg.status === 'loading' ? queueWait : 0);
   useEffect(() => {
-    if (!msg.waitingUntil) return;
+    if (!until) return;
     const t = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(t);
-  }, [msg.waitingUntil]);
+  }, [until]);
 
   if (msg.status === 'loading') {
-    const wait = msg.waitingUntil && msg.waitingUntil > now ? Math.ceil((msg.waitingUntil - now) / 1000) : 0;
+    const wait = until > now ? Math.ceil((until - now) / 1000) : 0;
     return (
       <p className="ask__thinking" role="status">
         <span className="spinner" aria-hidden="true" />{' '}
