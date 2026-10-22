@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { AccountButton } from './AccountButton';
 import { ThemeSwitch } from './ThemeSwitch';
 import { Wordmark } from './Wordmark';
 import './Navbar.css';
@@ -51,6 +52,7 @@ export function Navbar() {
         </nav>
 
         <div className="nav__end">
+          <AccountButton />
           <ThemeSwitch />
           <button
             ref={toggleRef}

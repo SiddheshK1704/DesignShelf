@@ -68,6 +68,42 @@
   gap: var(--space-2);
 }
 
+.nav__account {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color 160ms var(--ease-out),
+    background-color 160ms var(--ease-out);
+}
+
+.nav__account:hover {
+  border-color: var(--muted);
+  background: var(--surface);
+}
+
+.nav__account-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.nav__account-dot--local {
+  background: transparent;
+  border: 1px solid var(--accent);
+}
+
 .nav__menu-btn {
   display: none;
   width: 44px;
@@ -107,6 +143,24 @@
 
 .nav[data-open='true'] .nav__menu-icon::before {
   transform: translateY(-6px) rotate(-90deg);
+}
+
+@media (max-width: 400px) {
+  .nav__inner {
+    gap: var(--space-2);
+  }
+
+  .nav__end {
+    gap: var(--space-1);
+  }
+
+  .nav__account {
+    padding: 0 var(--space-2);
+  }
+
+  .wordmark__text {
+    font-size: 18px;
+  }
 }
 
 /* Mobile: links fold into a panel under the bar. */

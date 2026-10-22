@@ -34,7 +34,7 @@ export function setTheme(theme: Theme, origin?: { x: number; y: number }) {
   if (typeof document.startViewTransition !== 'function' || !origin) {
     root.classList.add('theme-fading');
     apply(theme);
-    window.setTimeout(() => root.classList.remove('theme-fading'), 220);
+    window.setTimeout(() => root.classList.remove('theme-fading'), 380);
     return;
   }
 
@@ -46,7 +46,7 @@ export function setTheme(theme: Theme, origin?: { x: number; y: number }) {
     .then(() => {
       root.animate(
         { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-        { duration: 520, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)', pseudoElement: '::view-transition-new(root)' },
+        { duration: 950, easing: 'cubic-bezier(0.45, 0, 0.2, 1)', pseudoElement: '::view-transition-new(root)' },
       );
     })
     .catch(() => {

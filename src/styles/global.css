@@ -211,10 +211,10 @@ html.theme-fading *,
 html.theme-fading *::before,
 html.theme-fading *::after {
   transition:
-    background-color 200ms linear,
-    border-color 200ms linear,
-    color 200ms linear,
-    fill 200ms linear !important;
+    background-color 350ms linear,
+    border-color 350ms linear,
+    color 350ms linear,
+    fill 350ms linear !important;
 }
 
 /* Circular reveal: the new snapshot is clipped in JS; keep the old one still. */

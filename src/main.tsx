@@ -11,11 +11,14 @@ import './styles/tokens.css';
 import './styles/global.css';
 
 import { App } from './App';
+import { AuthProvider } from './components/AuthProvider';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </BrowserRouter>
   </StrictMode>,
 );
