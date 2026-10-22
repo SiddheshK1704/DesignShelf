@@ -152,7 +152,16 @@ export interface Part {
   inlineData?: { mimeType: string; data: string };
 }
 
-export async function generateJson<T>(parts: Part[], schema: Schema, opts: { temperature?: number; system?: string } = {}): Promise<T> {
+export interface Turn {
+  role: 'user' | 'model';
+  parts: Part[];
+}
+
+export async function generateJson<T>(
+  parts: Part[],
+  schema: Schema,
+  opts: { temperature?: number; system?: string; history?: Turn[] } = {},
+): Promise<T> {
   const { generate } = await ensureModels();
   const data = await call<{
     candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
@@ -161,14 +170,21 @@ export async function generateJson<T>(parts: Part[], schema: Schema, opts: { tem
     method: 'POST',
     body: JSON.stringify({
       ...(opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {}),
-      contents: [{ role: 'user', parts }],
+      contents: [...(opts.history ?? []), { role: 'user', parts }],
       generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: opts.temperature ?? 0.4 },
     }),
   });
   if (data.promptFeedback?.blockReason) {
     throw new GeminiError(`Gemini declined this request (${data.promptFeedback.blockReason}). Try a different image or wording.`);
   }
-  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+  const candidate = data.candidates?.[0];
+  if (candidate?.finishReason === 'SAFETY' || candidate?.finishReason === 'PROHIBITED_CONTENT') {
+    throw new GeminiError('Gemini declined to answer this one. Try rewording it or using a different image.');
+  }
+  const text = candidate?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+  if (candidate?.finishReason === 'MAX_TOKENS' && !text.trim().endsWith('}')) {
+    throw new GeminiError('Gemini’s answer was cut off before it finished. Try a shorter or more specific request.');
+  }
   try {
     return JSON.parse(text) as T;
   } catch {

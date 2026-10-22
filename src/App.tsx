@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
+import { Assistant } from './pages/Assistant';
 import { Boards, BoardDetail } from './pages/Boards';
 import { Help } from './pages/Help';
 import { Landing } from './pages/Landing';
@@ -15,7 +16,7 @@ export function App() {
         <Route index element={<Landing />} />
         <Route path="ref/:slug" element={<Reference />} />
         <Route path="library" element={<Library />} />
-        <Route path="assistant" element={<Placeholder title="Assistant" />} />
+        <Route path="assistant" element={<Assistant />} />
         <Route path="boards" element={<Boards />} />
         <Route path="boards/:boardId" element={<BoardDetail />} />
         <Route path="help" element={<Help />} />
