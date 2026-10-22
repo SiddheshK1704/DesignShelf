@@ -3,6 +3,7 @@
  * Models are discovered with ListModels instead of being hardcoded.
  */
 import { groupsFor } from './lenses';
+import { parsePartialJson } from './partialJson';
 import { getSettings, updateSettings } from './settings';
 import type { Lens, TagGroups } from './types';
 
@@ -369,10 +370,79 @@ type GenerateResponse = {
   promptFeedback?: { blockReason?: string };
 };
 
+/**
+ * A streamed request (streamGenerateContent over server-sent events). Calls
+ * `onText` with everything written so far, so the page can show the reply
+ * as it arrives instead of after the last word. Same queue and errors as call().
+ */
+async function streamCall(model: string, body: string, priority: Priority, onText: (text: string) => void): Promise<GenerateResponse> {
+  const key = getSettings().geminiKey;
+  if (!key) throw new GeminiError('Add your Gemini API key in Settings to use AI tagging and search by meaning.', 0);
+  return slot(priority, model, async () => {
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/models/${model}:streamGenerateContent?alt=sse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body,
+      });
+    } catch {
+      throw new GeminiError('Could not reach Gemini. Check your internet connection and try again.', 0);
+    }
+    if (!res.ok || !res.body) {
+      const err = await toError(res);
+      if (err.status === 429 && !err.exhausted) pause(model, err.retryAfterMs ?? 15_000);
+      throw err;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let text = '';
+    let finishReason: string | undefined;
+    let blockReason: string | undefined;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (!line.startsWith('data:')) continue;
+        let chunk: GenerateResponse & { error?: { message?: string } };
+        try {
+          chunk = JSON.parse(line.slice(5).trim());
+        } catch {
+          continue;
+        }
+        if (chunk.error) throw new GeminiError(`Gemini stopped partway: ${chunk.error.message ?? 'unknown error'}. Try again.`, 500);
+        const c = chunk.candidates?.[0];
+        // Thought summaries (if a model sends them) aren't part of the answer.
+        const piece = c?.content?.parts?.filter((p) => !(p as { thought?: boolean }).thought).map((p) => p.text ?? '').join('') ?? '';
+        if (piece) {
+          text += piece;
+          onText(text);
+        }
+        if (c?.finishReason) finishReason = c.finishReason;
+        if (chunk.promptFeedback?.blockReason) blockReason = chunk.promptFeedback.blockReason;
+      }
+    }
+    return { candidates: [{ content: { parts: [{ text }] }, finishReason }], promptFeedback: blockReason ? { blockReason } : undefined };
+  });
+}
+
 export async function generateJson<T>(
   parts: Part[],
   schema: Schema,
-  opts: { temperature?: number; system?: string; history?: Turn[]; priority?: Priority } = {},
+  opts: {
+    temperature?: number;
+    system?: string;
+    history?: Turn[];
+    priority?: Priority;
+    /** Stream the reply and call this with the parsed-so-far value as it grows. */
+    onPartial?: (value: Record<string, unknown>) => void;
+  } = {},
 ): Promise<T> {
   const body = JSON.stringify({
     ...(opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {}),
@@ -386,7 +456,13 @@ export async function generateJson<T>(
   for (let attempt = 0; !data; attempt++) {
     const { generate } = await ensureModels();
     try {
-      data = await call<GenerateResponse>(`models/${generate}:generateContent`, { method: 'POST', body }, undefined, opts.priority);
+      const onPartial = opts.onPartial;
+      data = onPartial
+        ? await streamCall(generate, body, opts.priority ?? 'now', (text) => {
+            const value = parsePartialJson(text);
+            if (value && typeof value === 'object' && !Array.isArray(value)) onPartial(value as Record<string, unknown>);
+          })
+        : await call<GenerateResponse>(`models/${generate}:generateContent`, { method: 'POST', body }, undefined, opts.priority);
     } catch (err) {
       if (!(err instanceof GeminiError) || err.status !== 429) throw err;
       noteLimit(generate, err);

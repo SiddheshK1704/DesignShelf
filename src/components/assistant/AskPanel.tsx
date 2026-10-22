@@ -47,14 +47,21 @@ export function AskPanel() {
   }
 
   async function run(userMsg: UserMsg, replyId: string) {
-    updateMsg(replyId, { status: 'loading', error: undefined });
+    updateMsg(replyId, { status: 'loading', error: undefined, partial: undefined });
     try {
       const inline = await Promise.all(userMsg.attachments.map((a) => toAiImage(a.file)));
       // Only the last few exchanges go along as context.
       const history = getChat().history.slice(-8);
-      const answer = await ask(userMsg.text, inline, history, (ms) => updateMsg(replyId, { waitingUntil: Date.now() + ms }));
+      const answer = await ask(
+        userMsg.text,
+        inline,
+        history,
+        (ms) => updateMsg(replyId, { waitingUntil: Date.now() + ms }),
+        // Show the summary and directions while Gemini is still writing them.
+        (partial) => updateMsg(replyId, { partial, waitingUntil: undefined }),
+      );
       // Show the answer straight away; shelf matches fill in when their searches finish.
-      updateMsg(replyId, { status: 'done', answer, shelf: undefined, waitingUntil: undefined });
+      updateMsg(replyId, { status: 'done', answer, partial: undefined, shelf: undefined, waitingUntil: undefined });
       setChat((s) => ({ ...s, history: [...s.history, ...toHistory(userMsg.text, userMsg.attachments.length, answer)] }));
       const shelf = await shelfMatches(images, userMsg.text, answer, Boolean(settings.geminiKey), 6, store).catch(() => []);
       updateMsg(replyId, { shelf });
@@ -193,10 +200,38 @@ function Reply({
 
   if (msg.status === 'loading') {
     const wait = until > now ? Math.ceil((until - now) / 1000) : 0;
+    const p = msg.partial;
+    if (p?.summary && !wait) {
+      // Streaming: show what Gemini has written so far.
+      return (
+        <article className="answer" aria-busy="true">
+          <p className="answer__summary">
+            {p.summary}
+            <span className="answer__caret" aria-hidden="true" />
+          </p>
+          {p.directions && p.directions.length > 0 && (
+            <section className="answer__sec">
+              <h3 className="answer__h">Directions</h3>
+              <ul className="answer__dirs">
+                {p.directions.map((d) => (
+                  <li key={d.title}>
+                    <strong>{d.title}</strong>
+                    <span>{d.why}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          <p className="muted ask__writing" role="status">
+            <span className="spinner" aria-hidden="true" /> Writing…
+          </p>
+        </article>
+      );
+    }
     return (
       <p className="ask__thinking" role="status">
         <span className="spinner" aria-hidden="true" />{' '}
-        {wait ? `Gemini asked us to slow down. Trying again in ${wait}s.` : 'Thinking…'}
+        {wait ? `Gemini asked us to slow down. Trying again in ${wait}s.` : 'Thinking… The answer appears here as it’s written.'}
       </p>
     );
   }

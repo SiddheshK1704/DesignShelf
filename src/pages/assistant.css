@@ -906,3 +906,31 @@
   color: var(--danger);
   white-space: pre-wrap !important;
 }
+
+/* Streaming answer */
+
+.answer__caret {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  background: var(--accent);
+  animation: caret 1s steps(1) infinite;
+}
+
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.ask__writing {
+  font-size: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .answer__caret {
+    animation: none;
+  }
+}

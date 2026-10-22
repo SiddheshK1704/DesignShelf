@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { AskAnswer } from '../../lib/assistant';
+import type { AskAnswer, PartialAnswer } from '../../lib/assistant';
 import type { Turn } from '../../lib/gemini';
 import type { ImageRecord } from '../../lib/types';
 
@@ -27,6 +27,8 @@ export interface AssistantMsg {
   role: 'assistant';
   replyTo: string;
   status: 'loading' | 'done' | 'error';
+  /** The answer as it streams in, before it's complete. */
+  partial?: PartialAnswer;
   answer?: AskAnswer;
   shelf?: ImageRecord[];
   error?: string;

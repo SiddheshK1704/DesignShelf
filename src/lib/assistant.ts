@@ -17,16 +17,16 @@ export interface AskAnswer {
 const ASK_SCHEMA = {
   type: 'OBJECT',
   properties: {
-    summary: { type: 'STRING', description: 'Plain prose, under 150 words.' },
+    summary: { type: 'STRING', description: 'Plain prose, under 120 words.' },
     directions: {
       type: 'ARRAY',
       minItems: 2,
-      maxItems: 5,
+      maxItems: 4,
       items: {
         type: 'OBJECT',
         properties: {
           title: { type: 'STRING', description: 'A short name for the direction, 2 to 5 words.' },
-          why: { type: 'STRING', description: 'One sentence on why it fits the request.' },
+          why: { type: 'STRING', description: 'One sentence, under 20 words, on why it fits the request.' },
         },
         required: ['title', 'why'],
       },
@@ -51,8 +51,8 @@ const ASK_SCHEMA = {
 const SYSTEM = [
   'You are a design research assistant for designers of any discipline: industrial, vehicle, CMF, UI/UX, graphic, interiors, fashion and packaging.',
   'Help the designer find references and directions. Be concrete and specific, like an experienced colleague. Use short sentences and plain words. No hype.',
-  'summary: under 150 words of plain prose that answers the question directly.',
-  'directions: 3 to 5 distinct directions worth exploring, each with a short title and one sentence on why it fits.',
+  'summary: under 120 words of plain prose that answers the question directly. Lead with the answer.',
+  'directions: 3 or 4 distinct directions worth exploring, each with a short title and one sentence (under 20 words) on why it fits.',
   'queries: up to 3 image-search queries of 2 to 4 words that would return good reference photos on sites like Pinterest or Wikimedia Commons. Keep them broad enough to match real photos: concrete objects, materials, finishes or settings. Avoid long or niche phrases and brand names.',
   'If images are attached, base your answer on what is visible in them.',
   'Never include URLs, links or image addresses anywhere in the reply.',
@@ -72,15 +72,39 @@ function tidy(a: AskAnswer): AskAnswer {
   };
 }
 
+/** What has arrived so far while the answer streams in. */
+export interface PartialAnswer {
+  summary?: string;
+  directions?: { title: string; why: string }[];
+}
+
 export async function ask(
   question: string,
   images: { mimeType: string; data: string }[],
   history: Turn[],
   onWait?: (ms: number) => void,
+  onPartial?: (partial: PartialAnswer) => void,
 ): Promise<AskAnswer> {
   const parts: Part[] = [...images.map((inlineData) => ({ inlineData })), { text: question || 'What directions and references should I look at for these images?' }];
   const answer = await withBackoff(
-    () => generateJson<AskAnswer>(parts, ASK_SCHEMA, { system: SYSTEM, history, temperature: 0.6 }),
+    () =>
+      generateJson<AskAnswer>(parts, ASK_SCHEMA, {
+        system: SYSTEM,
+        history,
+        temperature: 0.6,
+        onPartial: onPartial
+          ? (v) => {
+              const summary = typeof v.summary === 'string' ? v.summary : undefined;
+              // Only directions with both parts written; a half-written title would flicker.
+              const directions = Array.isArray(v.directions)
+                ? (v.directions as { title?: unknown; why?: unknown }[])
+                    .filter((d) => typeof d?.title === 'string' && typeof d?.why === 'string')
+                    .map((d) => ({ title: d.title as string, why: d.why as string }))
+                : undefined;
+              onPartial({ summary, directions });
+            }
+          : undefined,
+      }),
     onWait,
   );
   return tidy(answer);
