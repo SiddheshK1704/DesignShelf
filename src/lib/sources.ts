@@ -31,9 +31,21 @@ export interface OpenSearchResult {
 
 const clean = (s: unknown) => String(s ?? '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 
+/** Each source gets its own limit, so a slow one never holds up the other. */
+const SOURCE_TIMEOUT_MS = 4000;
+
+async function fetchSource(url: string, name: string): Promise<Response> {
+  try {
+    return await fetch(url, { signal: AbortSignal.timeout(SOURCE_TIMEOUT_MS) });
+  } catch (err) {
+    if ((err as Error).name === 'TimeoutError') throw new Error(`${name} took longer than ${SOURCE_TIMEOUT_MS / 1000} seconds, so its results were skipped.`);
+    throw new Error(`${name} could not be reached.`);
+  }
+}
+
 async function openverse(query: string, limit: number): Promise<OpenImage[]> {
   const params = new URLSearchParams({ q: query, page_size: String(limit), mature: 'false', category: 'photograph' });
-  const res = await fetch(`https://api.openverse.org/v1/images/?${params}`);
+  const res = await fetchSource(`https://api.openverse.org/v1/images/?${params}`, 'Openverse');
   if (res.status === 429) throw new Error('Openverse’s free daily limit was reached; showing Wikimedia Commons only.');
   if (!res.ok) throw new Error(`Openverse returned ${res.status}.`);
   const data = (await res.json()) as {
@@ -82,7 +94,7 @@ async function wikimedia(query: string, limit: number): Promise<OpenImage[]> {
     iiprop: 'url|size|extmetadata',
     iiurlwidth: '480',
   });
-  const res = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`);
+  const res = await fetchSource(`https://commons.wikimedia.org/w/api.php?${params}`, 'Wikimedia Commons');
   if (!res.ok) throw new Error(`Wikimedia Commons returned ${res.status}.`);
   const data = (await res.json()) as {
     query?: {
@@ -156,12 +168,15 @@ export async function searchOpenImages(query: string, limit = 6): Promise<OpenSe
   if (hit) return hit;
 
   const per = Math.max(3, Math.ceil(limit / 2) + 2);
+  // Both run at once; each settles on its own within the timeout.
   const [ov, wm] = await Promise.allSettled([openverse(query, per), wikimedia(query, per)]);
   const warnings: string[] = [];
-  if (ov.status === 'rejected') warnings.push((ov.reason as Error).message.includes('Openverse') ? (ov.reason as Error).message : 'Openverse could not be reached.');
-  if (wm.status === 'rejected') warnings.push((wm.reason as Error).message.includes('Wikimedia') ? (wm.reason as Error).message : 'Wikimedia Commons could not be reached.');
+  const reason = (r: PromiseRejectedResult, name: string) =>
+    (r.reason as Error).message.includes(name) ? (r.reason as Error).message : `${name} could not be reached.`;
+  if (ov.status === 'rejected') warnings.push(reason(ov, 'Openverse'));
+  if (wm.status === 'rejected') warnings.push(reason(wm, 'Wikimedia Commons'));
   if (ov.status === 'rejected' && wm.status === 'rejected') {
-    throw new Error('Neither Openverse nor Wikimedia Commons could be reached. Check your connection and try again.');
+    throw new Error(`No open images this time. ${warnings.join(' ')} Check your connection and try again.`);
   }
   const a = ov.status === 'fulfilled' ? ov.value : [];
   const b = wm.status === 'fulfilled' ? wm.value : [];
