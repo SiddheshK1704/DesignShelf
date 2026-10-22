@@ -19,7 +19,6 @@ export function Landing() {
           Find references
         </Link>
       </div>
-      <p className="mono muted">tokens · archivo wdth 125 · plex sans · plex mono · #E3A94A</p>
     </section>
   );
 }
