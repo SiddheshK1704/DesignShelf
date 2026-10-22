@@ -175,6 +175,7 @@ p {
   background: transparent;
   color: var(--text);
   font-weight: 500;
+  white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
   transition:

@@ -11,6 +11,8 @@
   --accent: #e3a94a;
   /* Text placed on a solid --text fill (primary buttons). */
   --on-text: #0d0e10;
+  --danger: #f08a7e;
+  --ok: #7fc8a9;
   --nav-bg: rgb(13 14 16 / 0.72);
   --switch-track: #0a0b0c;
   --switch-knob-hi: #4a4f57;
@@ -28,6 +30,8 @@
   --muted: #5e656e;
   --accent: #b8791a;
   --on-text: #ecedef;
+  --danger: #b3261e;
+  --ok: #1f7a55;
   --nav-bg: rgb(236 237 239 / 0.74);
   --switch-track: #d4d7dc;
   --switch-knob-hi: #ffffff;

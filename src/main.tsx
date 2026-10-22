@@ -9,15 +9,19 @@ import '@fontsource/ibm-plex-sans/600.css';
 import '@fontsource/ibm-plex-mono/400.css';
 import './styles/tokens.css';
 import './styles/global.css';
+import './styles/controls.css';
 
 import { App } from './App';
 import { AuthProvider } from './components/AuthProvider';
+import { LibraryProvider } from './components/library/LibraryProvider';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <App />
+        <LibraryProvider>
+          <App />
+        </LibraryProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,
