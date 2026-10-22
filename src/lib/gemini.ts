@@ -57,19 +57,42 @@ async function toError(res: Response): Promise<GeminiError> {
   return new GeminiError(`Gemini returned an error: ${raw}`, res.status);
 }
 
+/**
+ * At most this many Gemini requests are in flight at once, across the whole
+ * app (tagging, Ask, design docs). The rest wait their turn, which keeps a
+ * busy moment from tripping the per-minute rate limit. Backoff waits happen
+ * outside a slot, so a sleeping retry never blocks other requests.
+ */
+const MAX_IN_FLIGHT = 2;
+let inFlight = 0;
+const waiting: (() => void)[] = [];
+
+async function slot<T>(fn: () => Promise<T>): Promise<T> {
+  if (inFlight >= MAX_IN_FLIGHT) await new Promise<void>((resolve) => waiting.push(resolve));
+  inFlight++;
+  try {
+    return await fn();
+  } finally {
+    inFlight--;
+    waiting.shift()?.();
+  }
+}
+
 async function call<T>(path: string, init: RequestInit = {}, key = getSettings().geminiKey): Promise<T> {
   if (!key) throw new GeminiError('Add your Gemini API key in Settings to use AI tagging and search by meaning.', 0);
-  let res: Response;
-  try {
-    res = await fetch(`${BASE}/${path}`, {
-      ...init,
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key, ...init.headers },
-    });
-  } catch {
-    throw new GeminiError('Could not reach Gemini. Check your internet connection and try again.', 0);
-  }
-  if (!res.ok) throw await toError(res);
-  return res.json() as Promise<T>;
+  return slot(async () => {
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}/${path}`, {
+        ...init,
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key, ...init.headers },
+      });
+    } catch {
+      throw new GeminiError('Could not reach Gemini. Check your internet connection and try again.', 0);
+    }
+    if (!res.ok) throw await toError(res);
+    return res.json() as Promise<T>;
+  });
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -145,6 +168,19 @@ let checkedThisSession = false;
  * incomparable.
  */
 export async function ensureModels(): Promise<{ generate: string; embed: string }> {
+  const { models } = getSettings();
+  const auto = models.generateAuto !== false;
+  if (models.generate && models.embed && (!auto || checkedThisSession)) {
+    return { generate: models.generate, embed: models.embed };
+  }
+  // Callers that arrive together share one model-list lookup.
+  modelsLookup ??= resolveModels().finally(() => (modelsLookup = null));
+  return modelsLookup;
+}
+
+let modelsLookup: Promise<{ generate: string; embed: string }> | null = null;
+
+async function resolveModels(): Promise<{ generate: string; embed: string }> {
   const { models } = getSettings();
   const auto = models.generateAuto !== false;
   if (models.generate && models.embed && (!auto || checkedThisSession)) {
@@ -271,6 +307,31 @@ export async function tagImage(image: { mimeType: string; data: string }, lens: 
 function normalise(v: number[]): number[] {
   const n = Math.hypot(...v) || 1;
   return v.map((x) => x / n);
+}
+
+/**
+ * Several texts in one request (Gemini's batchEmbedContents), in the same
+ * order. Used where a search needs vectors for many queries at once.
+ */
+export async function embedMany(texts: string[], task: 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY'): Promise<{ values: number[][]; model: string }> {
+  if (!texts.length) return { values: [], model: '' };
+  const { embed: model } = await ensureModels();
+  const data = await call<{ embeddings?: { values?: number[] }[] }>(`models/${model}:batchEmbedContents`, {
+    method: 'POST',
+    body: JSON.stringify({
+      requests: texts.map((text) => ({
+        model: `models/${model}`,
+        content: { parts: [{ text }] },
+        taskType: task,
+        outputDimensionality: EMBED_DIMS,
+      })),
+    }),
+  });
+  const out = data.embeddings ?? [];
+  if (out.length !== texts.length || out.some((e) => !e.values?.length)) {
+    throw new GeminiError('Gemini returned incomplete embeddings. Try again.');
+  }
+  return { values: out.map((e) => normalise(e.values!.slice(0, EMBED_DIMS))), model };
 }
 
 export async function embed(text: string, task: 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY'): Promise<{ values: number[]; model: string }> {

@@ -3,7 +3,7 @@
  * appear in an image's tags, description or name. Falls back to keywords
  * only when there is no key or no embeddings yet.
  */
-import { embed } from './gemini';
+import { embed, embedMany } from './gemini';
 import type { LibraryStore } from './store/LibraryStore';
 import type { ImageRecord } from './types';
 
@@ -40,12 +40,20 @@ export function keywordScore(img: ImageRecord, words: string[]): number {
 const queryCache = new Map<string, number[]>();
 
 export async function embedQuery(query: string): Promise<number[]> {
-  const key = query.trim().toLowerCase();
-  const hit = queryCache.get(key);
-  if (hit) return hit;
-  const { values } = await embed(key, 'RETRIEVAL_QUERY');
-  queryCache.set(key, values);
-  return values;
+  return (await embedQueries([query]))[0];
+}
+
+/** Vectors for several queries, fetched in a single request; repeats come from the cache. */
+export async function embedQueries(queries: string[]): Promise<number[][]> {
+  const keys = queries.map((q) => q.trim().toLowerCase());
+  const missing = [...new Set(keys.filter((k) => !queryCache.has(k)))];
+  if (missing.length === 1) {
+    queryCache.set(missing[0], (await embed(missing[0], 'RETRIEVAL_QUERY')).values);
+  } else if (missing.length > 1) {
+    const { values } = await embedMany(missing, 'RETRIEVAL_QUERY');
+    missing.forEach((k, i) => queryCache.set(k, values[i]));
+  }
+  return keys.map((k) => queryCache.get(k)!);
 }
 
 export interface SearchHit {
@@ -63,12 +71,17 @@ export interface SearchResult {
 }
 
 /** In account mode vectors stay in the database; a model name means one exists. */
-const hasVector = (i: ImageRecord) => Boolean(i.embedding?.length || i.embeddingModel);
+export const hasVector = (i: ImageRecord) => Boolean(i.embedding?.length || i.embeddingModel);
 
 export async function search(
   images: ImageRecord[],
   query: string,
-  opts: { useEmbeddings: boolean; store?: Pick<LibraryStore, 'matchImages'> },
+  opts: {
+    useEmbeddings: boolean;
+    store?: Pick<LibraryStore, 'matchImages'>;
+    /** A vector already fetched for this query (e.g. in a batch), so no request is made here. */
+    queryVector?: number[];
+  },
 ): Promise<SearchResult> {
   const words = terms(query);
   const withVectors = images.filter(hasVector);
@@ -78,7 +91,7 @@ export async function search(
 
   if (opts.useEmbeddings && withVectors.length) {
     try {
-      qv = await embedQuery(query);
+      qv = opts.queryVector ?? (await embedQuery(query));
       // Account mode: similarity is computed in the database by match_images.
       if (opts.store?.matchImages) {
         const rows = await opts.store.matchImages(qv, Math.min(200, withVectors.length));

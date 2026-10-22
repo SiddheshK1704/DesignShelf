@@ -45,10 +45,20 @@ async function fetchSource(url: string, name: string): Promise<Response> {
   }
 }
 
+/** After Openverse says "too many requests", leave it alone for a while. */
+let openverseRestUntil = 0;
+
 async function openverse(query: string, limit: number): Promise<OpenImage[]> {
+  if (Date.now() < openverseRestUntil) {
+    throw new Error('Openverse asked us to slow down, so only Wikimedia Commons is searched for the next minute.');
+  }
   const params = new URLSearchParams({ q: query, page_size: String(limit), mature: 'false', category: 'photograph' });
   const res = await fetchSource(`https://api.openverse.org/v1/images/?${params}`, 'Openverse');
-  if (res.status === 429) throw new Error('Openverse’s free daily limit was reached; showing Wikimedia Commons only.');
+  if (res.status === 429) {
+    const retry = Number(res.headers.get('retry-after'));
+    openverseRestUntil = Date.now() + (retry > 0 ? Math.min(retry, 600) * 1000 : 60_000);
+    throw new Error('Openverse’s free request limit was reached, so only Wikimedia Commons is searched for now.');
+  }
   if (!res.ok) throw new Error(`Openverse returned ${res.status}.`);
   const data = (await res.json()) as {
     results?: {
@@ -168,10 +178,38 @@ function writeCache(key: string, value: OpenSearchResult) {
  * often match nothing, so an empty result is retried with the last word,
  * then the last two words, dropped (never below two words).
  */
-export async function searchOpenImages(query: string, limit = 6): Promise<OpenSearchResult> {
+/** Searches already running, so the same query asked twice shares one set of requests. */
+const running = new Map<string, Promise<OpenSearchResult>>();
+
+/** At most two searches at a time (each one asks both sources), the rest queue. */
+const MAX_SEARCHES = 2;
+let activeSearches = 0;
+const queued: (() => void)[] = [];
+
+async function inTurn<T>(fn: () => Promise<T>): Promise<T> {
+  if (activeSearches >= MAX_SEARCHES) await new Promise<void>((resolve) => queued.push(resolve));
+  activeSearches++;
+  try {
+    return await fn();
+  } finally {
+    activeSearches--;
+    queued.shift()?.();
+  }
+}
+
+export function searchOpenImages(query: string, limit = 6): Promise<OpenSearchResult> {
   const key = `${query.trim().toLowerCase()}|${limit}`;
   const hit = readCache()[key];
-  if (hit) return hit;
+  if (hit) return Promise.resolve(hit);
+  let job = running.get(key);
+  if (!job) {
+    job = inTurn(() => runSearch(query, limit, key)).finally(() => running.delete(key));
+    running.set(key, job);
+  }
+  return job;
+}
+
+async function runSearch(query: string, limit: number, key: string): Promise<OpenSearchResult> {
 
   const words = query.trim().split(/\s+/);
   const tries = [words.join(' ')];

@@ -4,7 +4,7 @@
  * image URLs; real images come from the shelf and from open-licence sources.
  */
 import { generateJson, withBackoff, type Part, type Turn } from './gemini';
-import { search } from './search';
+import { embedQueries, hasVector, search } from './search';
 import type { LibraryStore } from './store/LibraryStore';
 import type { ImageRecord } from './types';
 
@@ -111,8 +111,21 @@ export async function shelfMatches(
   if (!images.length) return [];
   const texts = [question, ...answer.queries.map((q) => q.query)].filter((t) => t.trim());
   const best = new Map<string, { image: ImageRecord; score: number }>();
-  // All searches at once: each needs its own embedding call, and they don't depend on each other.
-  const results = await Promise.all(texts.map((t) => search(images, t, { useEmbeddings, store })));
+  // One request for every query vector, instead of one request per query.
+  let vectors: (number[] | undefined)[] = [];
+  const semantic = useEmbeddings && images.some(hasVector);
+  if (semantic) {
+    try {
+      vectors = await embedQueries(texts);
+    } catch {
+      // Fall back to keyword matching below.
+    }
+  }
+  // One search at a time: in account mode each one is a database call.
+  const results = [];
+  for (const [i, t] of texts.entries()) {
+    results.push(await search(images, t, { useEmbeddings: semantic && Boolean(vectors[i]), store, queryVector: vectors[i] }));
+  }
   for (const r of results) {
     for (const h of r.hits) {
       const cur = best.get(h.image.id);

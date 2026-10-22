@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { lookFurther } from '../../lib/lookFurther';
 import { searchOpenImages, type OpenSearchResult } from '../../lib/sources';
 import type { ImageRecord } from '../../lib/types';
@@ -47,8 +47,28 @@ export function OpenImages({ label, query, limit = 4 }: { label: string; query: 
     status: 'loading',
   });
   const [attempt, setAttempt] = useState(0);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  // Only search once the row is near the screen, so a long answer doesn't fire every search at once.
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el || visible) return;
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: '300px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visible]);
 
   useEffect(() => {
+    if (!visible) return;
     let alive = true;
     setState({ status: 'loading' });
     searchOpenImages(query, limit)
@@ -57,10 +77,10 @@ export function OpenImages({ label, query, limit = 4 }: { label: string; query: 
     return () => {
       alive = false;
     };
-  }, [query, limit, attempt]);
+  }, [query, limit, attempt, visible]);
 
   return (
-    <div className="as-open">
+    <div className="as-open" ref={boxRef}>
       <p className="as-open__label">
         {label} <span className="muted mono">“{query}”</span>
       </p>
