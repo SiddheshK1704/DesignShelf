@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { Footer } from './Footer';
 import { Navbar } from './Navbar';
 
 export function Layout() {
@@ -18,6 +19,7 @@ export function Layout() {
       <main id="main" tabIndex={-1}>
         <Outlet />
       </main>
+      <Footer />
     </>
   );
 }

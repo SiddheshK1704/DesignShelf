@@ -1,0 +1,41 @@
+.swatch {
+  display: inline-grid;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: copy;
+}
+
+.swatch__chip {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--line);
+  transition: transform 200ms var(--ease-out);
+}
+
+.swatch--sm .swatch__chip {
+  height: 28px;
+}
+
+.swatch--md .swatch__chip {
+  height: 48px;
+}
+
+.swatch--lg .swatch__chip {
+  height: 88px;
+}
+
+.swatch:hover .swatch__chip {
+  transform: translateY(-2px);
+}
+
+.swatch__hex {
+  color: var(--muted);
+  min-width: 7ch;
+}
+
+.swatch:hover .swatch__hex {
+  color: var(--text);
+}

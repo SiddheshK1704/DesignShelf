@@ -1,0 +1,64 @@
+.cta {
+  border-top: 1px solid var(--line);
+  padding-block: var(--space-9);
+  overflow: hidden;
+}
+
+.cta__inner {
+  display: grid;
+  gap: var(--space-6);
+  justify-items: start;
+}
+
+/* Swatches as book spines on a shelf: the shelf is the bottom border. */
+.cta__spines {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  width: 100%;
+  height: 112px;
+  padding: 0 6px;
+  border-bottom: 2px solid var(--text);
+}
+
+.cta__spines span {
+  flex: 1 1 0;
+  min-width: 6px;
+  border: 1px solid rgb(0 0 0 / 0.25);
+  border-bottom: 0;
+  transform-origin: bottom center;
+  transition: transform 300ms var(--ease-spring);
+}
+
+.cta__spines span:nth-child(7n + 3) {
+  transform: rotate(-4deg);
+}
+
+.cta__spines:hover span:nth-child(odd) {
+  transform: translateY(-6px);
+}
+
+.cta__title {
+  font-size: var(--step-hero);
+  font-stretch: 125%;
+  font-weight: 880;
+  line-height: 0.9;
+  letter-spacing: -0.035em;
+}
+
+.cta__sub {
+  font-size: clamp(17px, 1.35vw, 20px);
+  max-width: 48ch;
+}
+
+.cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+@media (max-width: 380px) {
+  .cta__title {
+    font-stretch: 110%;
+  }
+}

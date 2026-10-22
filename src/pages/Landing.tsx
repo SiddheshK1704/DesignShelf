@@ -1,20 +1,11 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Cta } from '../components/Cta';
+import { Features } from '../components/features/Features';
 import { Collage } from '../components/hero/Collage';
-import { HERO_REFS, loadHeroPhotos, type HeroPhoto } from '../lib/heroRefs';
+import { HERO_REFS } from '../lib/heroRefs';
 import './Landing.css';
 
 export function Landing() {
-  const [photos, setPhotos] = useState<Map<string, HeroPhoto>>(() => new Map());
-
-  useEffect(() => {
-    let alive = true;
-    loadHeroPhotos().then((p) => alive && setPhotos(p));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
   return (
     <>
       <section className="hero" aria-labelledby="hero-title">
@@ -41,10 +32,13 @@ export function Landing() {
           </div>
         </div>
 
-        <div className="hero__collage" role="region" aria-label="Example references with their tags">
-          <Collage items={HERO_REFS} photos={photos} parallax />
+        <div className="hero__collage" role="region" aria-label="Example references. Select one to see details.">
+          <Collage items={HERO_REFS} parallax />
         </div>
       </section>
+
+      <Features />
+      <Cta />
     </>
   );
 }

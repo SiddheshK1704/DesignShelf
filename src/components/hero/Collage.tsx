@@ -1,19 +1,18 @@
 import { useEffect, useRef } from 'react';
-import type { HeroPhoto, HeroRef } from '../../lib/heroRefs';
+import type { HeroRef } from '../../lib/heroRefs';
 import { prefersReducedMotion } from '../../lib/theme';
 import { ReferenceTile } from './ReferenceTile';
 import './Collage.css';
 
 interface Props {
   items: HeroRef[];
-  photos: Map<string, HeroPhoto>;
   /** Drift columns in opposite directions on scroll. */
   parallax?: boolean;
   className?: string;
 }
 
 /** Three staggered columns of framed references. Items fill columns left to right, row by row. */
-export function Collage({ items, photos, parallax = false, className = '' }: Props) {
+export function Collage({ items, parallax = false, className = '' }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,7 +43,7 @@ export function Collage({ items, photos, parallax = false, className = '' }: Pro
       {columns.map((col, c) => (
         <div className="collage__col" key={c}>
           {col.map(({ item, i }) => (
-            <ReferenceTile key={item.slug} item={item} index={i} photo={photos.get(item.slug)} eager={i < 6} />
+            <ReferenceTile key={item.slug} item={item} index={i} />
           ))}
         </div>
       ))}

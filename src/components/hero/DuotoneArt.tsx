@@ -102,19 +102,37 @@ export function DuotoneArt({ variant, colors }: { variant: ArtVariant; colors: [
         </>
       )}
 
-      {variant === 'speaker' && (
+      {variant === 'scooter' && (
         <>
           <defs>
-            <pattern id={`knit-${uid}`} width="3" height="3" patternUnits="userSpaceOnUse">
-              <circle cx="1.5" cy="1.5" r="0.75" fill={c0} opacity="0.28" />
-            </pattern>
+            <clipPath id={`body-${uid}`}>
+              <path d="M50 66V57c2-8 10-12 21-12 10 0 16 6 16 15v6z" />
+            </clipPath>
           </defs>
-          <rect width="100" height="100" fill={c0} />
-          <ellipse cx="50" cy="84" rx="28" ry="2.4" fill="#000" opacity="0.4" />
-          <rect x="24" y="18" width="52" height="65" rx="15" fill={c1} />
-          <rect x="24" y="18" width="52" height="65" rx="15" fill={`url(#knit-${uid})`} />
-          <rect x="62" y="18" width="14" height="65" rx="7" fill="#000" opacity="0.08" />
-          <circle cx="50" cy="27" r="2" fill={c2} />
+          <rect width="100" height="100" fill={c2} />
+          <rect y="80" width="100" height="20" fill={c0} opacity="0.08" />
+          <ellipse cx="50" cy="81" rx="38" ry="1.8" fill="#000" opacity="0.25" />
+          {/* Rear body, with a lighter lower band for the two-tone paint. */}
+          <path d="M50 66V57c2-8 10-12 21-12 10 0 16 6 16 15v6z" fill={c1} />
+          <rect x="48" y="59" width="42" height="8" fill={c2} opacity="0.55" clipPath={`url(#body-${uid})`} />
+          <path d="M52 44c0-3 3-4.5 6-4.5h20c3 0 5 2 5 4.5z" fill={c0} />
+          <rect x="86" y="51" width="2" height="4" fill={c0} />
+          {/* Floorboard and leg shield. */}
+          <rect x="33" y="62" width="20" height="4" rx="1" fill={c0} opacity="0.85" />
+          <path d="M29 66c-2-12 1-28 5-40h4.5c-2.5 12-3 26-1 38z" fill={c1} />
+          <path d="M27.5 29 25 70" stroke={c0} strokeWidth="2" strokeLinecap="round" />
+          {/* Front mudguard over the wheel. */}
+          <path d="M15 69a11 11 0 0 1 22 0h-3a8 8 0 0 0-16 0z" fill={c1} />
+          {[26, 71].map((cx) => (
+            <g key={cx}>
+              <circle cx={cx} cy="72" r="8.5" fill={c0} />
+              <circle cx={cx} cy="72" r="3.6" fill={c2} opacity="0.7" />
+            </g>
+          ))}
+          {/* Handlebar and headlight. */}
+          <rect x="25" y="23" width="17" height="3" rx="1.5" fill={c0} />
+          <circle cx="30" cy="27.5" r="3.4" fill={c2} stroke={c0} strokeWidth="1" />
+          <path d="M40 23l2-5" stroke={c0} strokeWidth="1" strokeLinecap="round" />
         </>
       )}
 

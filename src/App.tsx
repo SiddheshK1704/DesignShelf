@@ -2,12 +2,14 @@ import { Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Landing } from './pages/Landing';
 import { Placeholder } from './pages/Placeholder';
+import { Reference } from './pages/Reference';
 
 export function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Landing />} />
+        <Route path="ref/:slug" element={<Reference />} />
         <Route path="library" element={<Placeholder title="Library" />} />
         <Route path="find" element={<Placeholder title="Find references" />} />
         <Route path="boards" element={<Placeholder title="Boards" />} />
