@@ -38,7 +38,7 @@ const ASK_SCHEMA = {
         type: 'OBJECT',
         properties: {
           label: { type: 'STRING', description: 'A short label, 1 to 4 words.' },
-          query: { type: 'STRING', description: 'An image-search query of 2 to 6 concrete visual words.' },
+          query: { type: 'STRING', description: 'An image-search query of 2 to 4 broad, concrete visual words.' },
         },
         required: ['label', 'query'],
       },
@@ -52,7 +52,7 @@ const SYSTEM = [
   'Help the designer find references and directions. Be concrete and specific, like an experienced colleague. Use short sentences and plain words. No hype.',
   'summary: under 150 words of plain prose that answers the question directly.',
   'directions: 3 to 5 distinct directions worth exploring, each with a short title and one sentence on why it fits.',
-  'queries: up to 3 image-search queries that would return good reference photos on sites like Pinterest or Wikimedia Commons. Use concrete visual words (objects, materials, finishes, settings). Avoid brand names.',
+  'queries: up to 3 image-search queries of 2 to 4 words that would return good reference photos on sites like Pinterest or Wikimedia Commons. Keep them broad enough to match real photos: concrete objects, materials, finishes or settings. Avoid long or niche phrases and brand names.',
   'If images are attached, base your answer on what is visible in them.',
   'Never include URLs, links or image addresses anywhere in the reply.',
 ].join('\n');

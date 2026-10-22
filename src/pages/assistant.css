@@ -499,3 +499,410 @@
 .composer__note {
   color: var(--text);
 }
+
+/* ---------- Design doc mode ---------- */
+
+.docmode {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.docmode__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .docmode__top {
+    grid-template-columns: 1fr;
+  }
+}
+
+.docform {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--surface);
+}
+
+.docform__brief {
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.docform__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+@media (max-width: 560px) {
+  .docform__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.docform__uploads {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.docform__thumb {
+  position: relative;
+}
+
+.docform__thumb img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+
+.docform__thumb button {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.docform__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.docform__stage {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.docsaved {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.docsaved ul {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.docsaved li {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line);
+}
+
+.docsaved li.is-current {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.docsaved__open {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.docsaved__open span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.docsaved__open .muted {
+  font-size: 12px;
+}
+
+.docsaved__open:hover {
+  background: var(--surface);
+}
+
+.docsaved__del {
+  width: 36px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.docsaved__del:hover {
+  color: var(--danger);
+}
+
+/* The doc itself: a calm, readable document. */
+
+.docwrap {
+  display: grid;
+  gap: var(--space-4);
+  scroll-margin-top: calc(var(--nav-h) + 12px);
+}
+
+.doc__toolbar {
+  position: sticky;
+  top: calc(var(--nav-h) + 8px);
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.doc__toolbar .btn {
+  min-height: 40px;
+}
+
+/* On phones the toolbar wraps, so let it scroll away instead of covering the doc. */
+@media (max-width: 640px) {
+  .doc__toolbar {
+    position: static;
+  }
+
+  .doc__toolbar .btn {
+    flex: 1 1 calc(50% - var(--space-2));
+  }
+}
+
+.doc__action {
+  font-size: 14px;
+  color: var(--muted);
+  padding-left: var(--space-2);
+}
+
+.doc {
+  display: grid;
+  gap: var(--space-7);
+  padding: clamp(24px, 5vw, 64px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.doc__head {
+  display: grid;
+  gap: var(--space-3);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--line);
+}
+
+.doc__meta {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.doc__title {
+  font-size: clamp(36px, 5vw, 64px);
+  font-stretch: 122%;
+  font-weight: 850;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+
+.doc__summary {
+  font-size: clamp(18px, 1.6vw, 21px);
+  line-height: 1.5;
+}
+
+.doc__sec {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.doc__sec h3 {
+  font-size: clamp(22px, 2.4vw, 28px);
+  font-stretch: 115%;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+}
+
+.doc__sec h4 {
+  font-family: var(--font-body);
+  font-stretch: 100%;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--muted);
+  margin-top: var(--space-2);
+}
+
+.doc__sec ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.doc__sec p,
+.doc__sec li {
+  max-width: 68ch;
+}
+
+.doc__brief {
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+.doc__two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+}
+
+@media (max-width: 640px) {
+  .doc__two {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+}
+
+.doc__items {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.doc__items dt {
+  font-weight: 600;
+}
+
+.doc__items dd {
+  margin: 0;
+  max-width: 68ch;
+}
+
+.doc__visual {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.doc__visual > div {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.doc__visual dt {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.doc__visual dd {
+  margin: 0;
+}
+
+.doc__sec .doc__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.doc__tags li {
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  font-size: 14px;
+}
+
+/* Diagram */
+
+.diagram {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.diagram__svg {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-5);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.diagram__svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Flat hairline nodes, matching the rest of the site: no glow. */
+.diagram__svg svg .node rect,
+.diagram__svg svg .node polygon,
+.diagram__svg svg .node circle,
+.diagram__svg svg .cluster rect {
+  filter: none !important;
+}
+
+[data-theme='dark'] .diagram__svg--light,
+[data-theme='light'] .diagram__svg--dark {
+  display: none;
+}
+
+.diagram__loading {
+  padding: var(--space-6);
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  text-align: center;
+}
+
+.diagram__src summary {
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.diagram pre,
+.diagram--failed pre {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  overflow-x: auto;
+  white-space: pre;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.diagram--failed {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.diagram__error {
+  color: var(--danger);
+  white-space: pre-wrap !important;
+}

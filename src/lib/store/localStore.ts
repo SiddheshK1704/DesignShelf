@@ -1,5 +1,5 @@
 import * as db from '../db';
-import { newId, type Board, type BoardImage, type ImageRecord } from '../types';
+import { newId, type Board, type BoardImage, type ImageRecord, type SavedDoc } from '../types';
 import type { LibraryStore } from './LibraryStore';
 
 interface BlobRow {
@@ -100,6 +100,20 @@ export function createLocalStore(): LibraryStore {
       await db.write(['boardImages'], (tx) => {
         for (const imageId of imageIds) tx.objectStore('boardImages').delete([boardId, imageId]);
       });
+      emit();
+    },
+
+    async listDocs() {
+      return (await db.getAll<SavedDoc>('docs')).sort((a, b) => b.updatedAt - a.updatedAt);
+    },
+
+    async saveDoc(doc) {
+      await db.put('docs', { ...doc, updatedAt: Date.now() });
+      emit();
+    },
+
+    async deleteDoc(id) {
+      await db.write(['docs'], (tx) => tx.objectStore('docs').delete(id));
       emit();
     },
 

@@ -420,7 +420,7 @@ function DataSection() {
       const r = await importLibrary(store, file);
       setMessage({
         ok: true,
-        text: `Imported ${r.added} ${r.added === 1 ? 'image' : 'images'}${r.skipped ? `, skipped ${r.skipped} already on your shelf` : ''}, and ${r.boards} ${r.boards === 1 ? 'board' : 'boards'}.`,
+        text: `Imported ${r.added} ${r.added === 1 ? 'image' : 'images'}${r.skipped ? `, skipped ${r.skipped} already on your shelf` : ''}, ${r.boards} ${r.boards === 1 ? 'board' : 'boards'} and ${r.docs} saved ${r.docs === 1 ? 'doc' : 'docs'}.`,
       });
     } catch (err) {
       setMessage({ ok: false, text: (err as Error).message });

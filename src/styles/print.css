@@ -1,0 +1,69 @@
+/* Print: only the main content, in light colours, without the app chrome. */
+@media print {
+  :root,
+  [data-theme] {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f2f3f5;
+    --line: #c9cdd3;
+    --text: #101215;
+    --muted: #4a5058;
+    --accent: #8a5a12;
+    color-scheme: light;
+  }
+
+  body::after,
+  .nav,
+  .footer,
+  .skip-link,
+  .page__head,
+  .tabs,
+  .docmode__top,
+  .doc__toolbar,
+  .diagram__src,
+  .dlg {
+    display: none !important;
+  }
+
+  .page {
+    padding: 0;
+    max-width: none;
+  }
+
+  /* Doubled class to outrank the page stylesheet, which loads later. */
+  .doc.doc {
+    border: 0;
+    padding: 0;
+    gap: 28px;
+  }
+
+  .doc__sec,
+  .doc__items > div,
+  .as-open__item,
+  .diagram {
+    break-inside: avoid;
+  }
+
+  /* Always print the light version of the diagram. */
+  .diagram__svg--dark {
+    display: none !important;
+  }
+
+  .diagram__svg.diagram__svg--light {
+    display: flex !important;
+    border: 0;
+    padding: 0;
+  }
+
+  a {
+    color: inherit;
+  }
+
+  .as-open__src::after,
+  .as-further__links a::after {
+    content: ' (' attr(href) ')';
+    font-size: 9pt;
+    color: #4a5058;
+    word-break: break-all;
+  }
+}
