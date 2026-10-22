@@ -238,7 +238,7 @@ function Detail({ image, onNavigate, onClose }: { image: ImageRecord; onNavigate
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Delete this image?"
+        title="Delete image?"
         body={<p>It will be removed from your library and from every board. This can’t be undone.</p>}
         confirmLabel="Delete"
         danger

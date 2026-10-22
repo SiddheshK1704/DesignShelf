@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { ConfirmDialog } from '../components/Dialog';
 import { FilterRail, matchesFilters } from '../components/library/FilterRail';
 import { ImageDialog } from '../components/library/ImageDialog';
 import { ImageGrid } from '../components/library/ImageGrid';
 import { IngestBar } from '../components/library/IngestBar';
 import { useLibrary } from '../components/library/LibraryProvider';
+import { forgetBlobUrls } from '../components/library/useBlobUrl';
 import { addFiles } from '../lib/ingest';
 import { addSamples } from '../lib/samples';
 import { search, type SearchResult } from '../lib/search';
@@ -24,6 +26,11 @@ export function Library() {
   const [dragging, setDragging] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
   const [sampleState, setSampleState] = useState<'idle' | 'adding' | string>('idle');
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string>();
+  const lastClicked = useRef<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => setDraft(q), [q]);
@@ -48,6 +55,68 @@ export function Library() {
     const base = result ? result.hits.map((h) => h.image) : images;
     return filters.size ? base.filter((i) => matchesFilters(i, filters)) : base;
   }, [result, images, filters]);
+
+  // Drop selections for images that are gone (deleted elsewhere or filtered out of the library).
+  useEffect(() => {
+    setSelected((s) => {
+      const ids = new Set(images.map((i) => i.id));
+      const next = new Set([...s].filter((id) => ids.has(id)));
+      return next.size === s.size ? s : next;
+    });
+  }, [images]);
+
+  const stopSelecting = useCallback(() => {
+    setSelecting(false);
+    setSelected(new Set());
+    lastClicked.current = null;
+  }, []);
+
+  // Escape leaves selection mode (unless a dialog is open; it handles Escape itself).
+  useEffect(() => {
+    if (!selecting) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !document.querySelector('dialog[open]')) stopSelecting();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [selecting, stopSelecting]);
+
+  function toggleSelected(id: string, range: boolean) {
+    // Read the anchor now: the updater below runs later, after it's overwritten.
+    const anchor = lastClicked.current;
+    setSelected((s) => {
+      const n = new Set(s);
+      const order = shown.map((i) => i.id);
+      const from = anchor ? order.indexOf(anchor) : -1;
+      const to = order.indexOf(id);
+      if (range && from >= 0 && to >= 0) {
+        // Shift-click: select everything between the last click and this one.
+        const [a, b] = from < to ? [from, to] : [to, from];
+        order.slice(a, b + 1).forEach((x) => n.add(x));
+      } else if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
+      return n;
+    });
+    lastClicked.current = id;
+  }
+
+  async function deleteSelected() {
+    const ids = [...selected];
+    setConfirmDelete(false);
+    try {
+      await store.deleteImages(ids);
+      forgetBlobUrls(ids);
+      setDeleteError(undefined);
+      stopSelecting();
+    } catch (err) {
+      setDeleteError(`Could not delete the selected images: ${(err as Error).message}`);
+    }
+  }
+
+  const allShownSelected = shown.length > 0 && shown.every((i) => selected.has(i.id));
 
   const setParam = useCallback(
     (key: string, value: string | null) => {
@@ -150,6 +219,16 @@ export function Library() {
               ))}
             </select>
           </label>
+          {images.length > 0 && (
+            <button
+              type="button"
+              className="btn"
+              aria-pressed={selecting}
+              onClick={() => (selecting ? stopSelecting() : setSelecting(true))}
+            >
+              {selecting ? 'Done selecting' : 'Select photos'}
+            </button>
+          )}
           <button type="button" className="btn btn--primary" onClick={() => fileRef.current?.click()}>
             Add images
           </button>
@@ -244,6 +323,41 @@ export function Library() {
             )}
             {result?.note && <p className="notice">{result.note}</p>}
 
+            {selecting && (
+              <div className="selbar" role="toolbar" aria-label="Selection">
+                <span className="selbar__count" aria-live="polite">
+                  {selected.size === 0
+                    ? 'Select photos to delete. Shift-click to select a range.'
+                    : `${selected.size} ${selected.size === 1 ? 'photo' : 'photos'} selected`}
+                </span>
+                <span className="selbar__actions">
+                  <button
+                    type="button"
+                    className="linkbtn"
+                    onClick={() => setSelected(allShownSelected ? new Set() : new Set(shown.map((i) => i.id)))}
+                  >
+                    {allShownSelected ? 'Clear selection' : `Select all ${shown.length}`}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--danger"
+                    disabled={selected.size === 0}
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    Delete selected
+                  </button>
+                  <button type="button" className="btn btn--quiet" onClick={stopSelecting}>
+                    Cancel
+                  </button>
+                </span>
+              </div>
+            )}
+            {deleteError && (
+              <p className="notice notice--error" role="alert">
+                {deleteError}
+              </p>
+            )}
+
             {shown.length === 0 && !searching ? (
               <div className="empty empty--small">
                 <h2>Nothing matches{q ? ` “${q}”` : ' these filters'}.</h2>
@@ -255,7 +369,12 @@ export function Library() {
                 </p>
               </div>
             ) : (
-              <ImageGrid images={shown} store={store} onOpen={(id) => setParam('image', id)} />
+              <ImageGrid
+                images={shown}
+                store={store}
+                onOpen={(id) => setParam('image', id)}
+                selection={selecting ? { selected, onToggle: toggleSelected } : undefined}
+              />
             )}
           </section>
         </div>
@@ -266,6 +385,21 @@ export function Library() {
           <p>Drop images to add them to your shelf</p>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title={selected.size === 1 ? 'Delete image?' : `Delete ${selected.size} images?`}
+        body={
+          <p>
+            {selected.size === 1 ? 'It' : 'They'} will be removed from your library and from every board. This can’t be
+            undone.
+          </p>
+        }
+        confirmLabel={selected.size === 1 ? 'Delete' : `Delete ${selected.size}`}
+        danger
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={deleteSelected}
+      />
 
       <ImageDialog
         imageId={openId}

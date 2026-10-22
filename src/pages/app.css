@@ -428,6 +428,93 @@
   box-shadow: inset 2px 0 0 #f08a7e;
 }
 
+/* ---------- Selection ---------- */
+
+.tile2--selecting {
+  cursor: pointer;
+}
+
+.tile2__check {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid #e9eaec;
+  border-radius: 50%;
+  background: rgb(13 14 16 / 0.45);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.3);
+  transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out);
+}
+
+.tile2__check svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: #0d0e10;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+}
+
+.tile2--selecting:hover .tile2__check {
+  background: rgb(13 14 16 / 0.7);
+}
+
+.tile2.is-checked {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.tile2.is-checked .tile2__check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.tile2.is-checked .tile2__check svg {
+  opacity: 1;
+}
+
+.tile2.is-checked .tile2__img img {
+  transform: scale(0.94);
+}
+
+.tile2__img img {
+  transition: transform 200ms var(--ease-out);
+}
+
+.selbar {
+  position: sticky;
+  top: calc(var(--nav-h) + 8px);
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  background: var(--surface);
+  font-size: 14px;
+}
+
+.selbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.selbar .btn {
+  min-height: 38px;
+}
+
 /* ---------- Drop zone ---------- */
 
 .dropzone {
@@ -483,7 +570,8 @@
 
 /* ---------- Image dialog ---------- */
 
-.idlg .dlg__head {
+/* Only the image dialog's own header; dialogs opened from inside it keep theirs. */
+.idlg > .dlg__card > .dlg__head {
   position: absolute;
   right: 0;
   top: 0;
