@@ -1,6 +1,7 @@
 import { useRef, type KeyboardEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AskPanel } from '../components/assistant/AskPanel';
+import { DocPanel } from '../components/assistant/DocPanel';
 import './app.css';
 import './assistant.css';
 
@@ -58,14 +59,7 @@ export function Assistant() {
       </div>
 
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`} className="tabs__panel">
-        {tab === 'ask' ? (
-          <AskPanel />
-        ) : (
-          <div className="empty reg-frame">
-            <h2>Design doc mode is next.</h2>
-            <p>Soon you’ll be able to paste a brief and get a structured handoff document back, with references and a diagram.</p>
-          </div>
-        )}
+        {tab === 'ask' ? <AskPanel /> : <DocPanel />}
       </div>
     </div>
   );

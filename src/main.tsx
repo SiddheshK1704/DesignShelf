@@ -10,6 +10,7 @@ import '@fontsource/ibm-plex-mono/400.css';
 import './styles/tokens.css';
 import './styles/global.css';
 import './styles/controls.css';
+import './styles/print.css';
 
 import { App } from './App';
 import { AuthProvider } from './components/AuthProvider';

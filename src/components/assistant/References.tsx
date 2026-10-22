@@ -102,6 +102,9 @@ export function OpenImages({ label, query, limit = 4 }: { label: string; query: 
                   </li>
                 ))}
           </ul>
+          {state.status === 'done' && state.result.usedQuery && (
+            <p className="field__hint">Nothing matched the full phrase, so these are for “{state.result.usedQuery}”.</p>
+          )}
           {state.status === 'done' && state.result.images.length === 0 && (
             <p className="muted">No open-licensed photos found for this one. Try the links below.</p>
           )}

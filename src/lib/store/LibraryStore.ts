@@ -1,4 +1,4 @@
-import type { Board, BoardImage, ImageRecord } from '../types';
+import type { Board, BoardImage, ImageRecord, SavedDoc } from '../types';
 
 /**
  * Everything the UI needs from a library, whether it lives in this browser
@@ -21,6 +21,10 @@ export interface LibraryStore {
   listBoardImages(): Promise<BoardImage[]>;
   addToBoard(boardId: string, imageIds: string[]): Promise<void>;
   removeFromBoard(boardId: string, imageIds: string[]): Promise<void>;
+
+  listDocs(): Promise<SavedDoc[]>;
+  saveDoc(doc: SavedDoc): Promise<void>;
+  deleteDoc(id: string): Promise<void>;
 
   /** Remove every image, board and saved doc. */
   clear(): Promise<void>;

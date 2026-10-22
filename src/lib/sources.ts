@@ -27,6 +27,8 @@ export interface OpenSearchResult {
   images: OpenImage[];
   /** Problems with individual sources; results from the others still show. */
   warnings: string[];
+  /** Set when the full query found nothing and a shorter one was used. */
+  usedQuery?: string;
 }
 
 const clean = (s: unknown) => String(s ?? '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
@@ -161,12 +163,39 @@ function writeCache(key: string, value: OpenSearchResult) {
   }
 }
 
-/** Search both sources and interleave the results. */
+/**
+ * Search both sources and interleave the results. Very specific queries
+ * often match nothing, so an empty result is retried with the last word,
+ * then the last two words, dropped (never below two words).
+ */
 export async function searchOpenImages(query: string, limit = 6): Promise<OpenSearchResult> {
   const key = `${query.trim().toLowerCase()}|${limit}`;
   const hit = readCache()[key];
   if (hit) return hit;
 
+  const words = query.trim().split(/\s+/);
+  const tries = [words.join(' ')];
+  for (let n = words.length - 1; n >= Math.max(2, words.length - 2); n--) tries.push(words.slice(0, n).join(' '));
+
+  let result: OpenSearchResult = { images: [], warnings: [] };
+  for (const [i, q] of tries.entries()) {
+    try {
+      result = await searchOnce(q, limit);
+    } catch (err) {
+      // Both sources failed: a shorter query won't help.
+      if (i === 0) throw err;
+      break;
+    }
+    if (result.images.length) {
+      if (i > 0) result.usedQuery = q;
+      break;
+    }
+  }
+  if (!result.warnings.length) writeCache(key, result);
+  return result;
+}
+
+async function searchOnce(query: string, limit: number): Promise<OpenSearchResult> {
   const per = Math.max(3, Math.ceil(limit / 2) + 2);
   // Both run at once; each settles on its own within the timeout.
   const [ov, wm] = await Promise.allSettled([openverse(query, per), wikimedia(query, per)]);
@@ -185,7 +214,5 @@ export async function searchOpenImages(query: string, limit = 6): Promise<OpenSe
     if (a[i]) images.push(a[i]);
     if (b[i] && images.length < limit) images.push(b[i]);
   }
-  const result = { images, warnings };
-  if (!warnings.length) writeCache(key, result);
-  return result;
+  return { images, warnings };
 }

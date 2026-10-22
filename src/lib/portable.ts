@@ -3,7 +3,7 @@
  */
 import { blobToDataUrl, dataUrlToBlob } from './image';
 import type { LibraryStore } from './store/LibraryStore';
-import type { Board, BoardImage, ImageRecord } from './types';
+import type { Board, BoardImage, ImageRecord, SavedDoc } from './types';
 
 interface ExportFile {
   app: 'designshelf';
@@ -12,6 +12,8 @@ interface ExportFile {
   images: (ImageRecord & { full: string; thumb: string })[];
   boards: Board[];
   boardImages: BoardImage[];
+  /** Saved design docs. Missing in files from older versions. */
+  docs?: SavedDoc[];
 }
 
 export async function exportLibrary(store: LibraryStore, onProgress?: (done: number, total: number) => void): Promise<Blob> {
@@ -29,6 +31,7 @@ export async function exportLibrary(store: LibraryStore, onProgress?: (done: num
     images: out,
     boards: await store.listBoards(),
     boardImages: await store.listBoardImages(),
+    docs: await store.listDocs(),
   };
   return new Blob([JSON.stringify(file)], { type: 'application/json' });
 }
@@ -37,6 +40,7 @@ export interface ImportResult {
   added: number;
   skipped: number;
   boards: number;
+  docs: number;
 }
 
 export async function importLibrary(store: LibraryStore, file: File): Promise<ImportResult> {
@@ -73,7 +77,15 @@ export async function importLibrary(store: LibraryStore, file: File): Promise<Im
     const ids = (data.boardImages ?? []).filter((l) => l.boardId === oldId).map((l) => l.imageId);
     if (ids.length) await store.addToBoard(newBoardId, ids);
   }
-  return { added, skipped, boards: idMap.size };
+
+  const haveDocs = new Set((await store.listDocs()).map((d) => d.id));
+  let docs = 0;
+  for (const d of data.docs ?? []) {
+    if (haveDocs.has(d.id)) continue;
+    await store.saveDoc({ ...d, boardId: d.boardId ? idMap.get(d.boardId) : undefined });
+    docs++;
+  }
+  return { added, skipped, boards: idMap.size, docs };
 }
 
 export function downloadBlob(blob: Blob, filename: string) {
