@@ -12,12 +12,13 @@ const KEYS = {
   models: 'designshelf.models',
   defaultLens: 'designshelf.lens.default',
   customLenses: 'designshelf.lenses.custom',
-  fastMode: 'designshelf.fast',
 } as const;
 
 export interface ModelChoice {
   generate?: string;
   embed?: string;
+  /** Follow the newest Flash model automatically (default). False once the user picks one by hand. */
+  generateAuto?: boolean;
 }
 
 export interface Settings {
@@ -25,8 +26,6 @@ export interface Settings {
   models: ModelChoice;
   defaultLensId: string;
   customLenses: Lens[];
-  /** Turn the model's thinking down for quicker replies. */
-  fastMode: boolean;
 }
 
 function read<T>(key: string, fallback: T): T {
@@ -52,8 +51,13 @@ let current: Settings = {
   models: read(KEYS.models, {}),
   defaultLensId: read(KEYS.defaultLens, 'general'),
   customLenses: read(KEYS.customLenses, []),
-  fastMode: read(KEYS.fastMode, true),
 };
+
+try {
+  localStorage.removeItem('designshelf.fast');
+} catch {
+  // Storage blocked: nothing to clean up.
+}
 
 const listeners = new Set<() => void>();
 
@@ -67,7 +71,6 @@ export function updateSettings(patch: Partial<Settings>) {
   if ('models' in patch) writeKey(KEYS.models, patch.models);
   if ('defaultLensId' in patch) writeKey(KEYS.defaultLens, patch.defaultLensId);
   if ('customLenses' in patch) writeKey(KEYS.customLenses, patch.customLenses);
-  if ('fastMode' in patch) writeKey(KEYS.fastMode, patch.fastMode);
   listeners.forEach((l) => l());
 }
 
@@ -90,6 +93,6 @@ export function findLens(id: string, s: Settings = current): Lens {
 
 export function clearSettings() {
   Object.values(KEYS).forEach((k) => writeKey(k, undefined));
-  current = { geminiKey: '', models: {}, defaultLensId: 'general', customLenses: [], fastMode: true };
+  current = { geminiKey: '', models: {}, defaultLensId: 'general', customLenses: [] };
   listeners.forEach((l) => l());
 }

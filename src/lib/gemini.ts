@@ -108,20 +108,26 @@ export async function listModels(key?: string): Promise<GeminiModel[]> {
   }));
 }
 
-/** Higher version first; "flash" before "pro" (cheaper, fast enough); stable before preview. */
-function rankGenerate(name: string): number {
+/**
+ * Newest first. Within a version, Flash before Pro and full Flash before
+ * Lite. A preview only loses to a stable model of the same version, so a
+ * newer preview still wins over an older stable release. Image, audio,
+ * live and other special-purpose models are never picked.
+ */
+export function rankGenerate(name: string): number {
   const v = parseFloat(name.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? '0');
   let score = v * 100;
-  if (/flash/.test(name)) score += 20;
-  if (/lite/.test(name)) score -= 5;
-  if (/preview|exp|experimental/.test(name)) score -= 30;
-  if (/thinking|tts|image|audio|live|robotics|computer|native/.test(name)) score -= 500;
+  if (/flash/.test(name)) score += 3;
+  if (/lite/.test(name)) score -= 2;
+  if (/preview|exp|experimental/.test(name)) score -= 1;
+  if (/thinking|tts|image|audio|live|robotics|computer|native|embedding/.test(name)) score -= 10000;
   return score;
 }
 
 export function pickModels(models: GeminiModel[]) {
   const generate = models
-    .filter((m) => m.methods.includes('generateContent') && /^gemini-/.test(m.name))
+    // Special-purpose models (image, audio, live…) can't do tagging or JSON answers: leave them out.
+    .filter((m) => m.methods.includes('generateContent') && /^gemini-/.test(m.name) && rankGenerate(m.name) > 0)
     .sort((a, b) => rankGenerate(b.name) - rankGenerate(a.name));
   const embed = models
     .filter((m) => m.methods.includes('embedContent'))
@@ -129,17 +135,38 @@ export function pickModels(models: GeminiModel[]) {
   return { generate, embed };
 }
 
-/** Fill in model choices if none are saved yet. */
+/** The model list is checked once per page load, so new releases are picked up without a reload loop. */
+let checkedThisSession = false;
+
+/**
+ * The models to use. Unless the user picked one by hand, the generation
+ * model follows the newest Flash model the key can use. The embedding model
+ * stays fixed once chosen: changing it would make existing search vectors
+ * incomparable.
+ */
 export async function ensureModels(): Promise<{ generate: string; embed: string }> {
   const { models } = getSettings();
-  if (models.generate && models.embed) return { generate: models.generate, embed: models.embed };
-  const found = pickModels(await listModels());
-  const generate = models.generate ?? found.generate[0]?.name;
+  const auto = models.generateAuto !== false;
+  if (models.generate && models.embed && (!auto || checkedThisSession)) {
+    return { generate: models.generate, embed: models.embed };
+  }
+
+  let found: ReturnType<typeof pickModels> | null = null;
+  try {
+    found = pickModels(await listModels());
+    checkedThisSession = true;
+  } catch (err) {
+    // Couldn't refresh the list: keep using what we have, if anything.
+    if (models.generate && models.embed) return { generate: models.generate, embed: models.embed };
+    throw err;
+  }
+
+  const generate = (auto ? found.generate[0]?.name : undefined) ?? models.generate ?? found.generate[0]?.name;
   const embed = models.embed ?? found.embed[0]?.name;
   if (!generate || !embed) {
     throw new GeminiError('No suitable Gemini models are available to this key. Check the key in Google AI Studio.');
   }
-  updateSettings({ models: { generate, embed } });
+  if (generate !== models.generate || embed !== models.embed) updateSettings({ models: { ...models, generate, embed } });
   return { generate, embed };
 }
 
@@ -157,22 +184,6 @@ export interface Turn {
   parts: Part[];
 }
 
-/**
- * Thinking makes newer models slower, and structured tasks like tagging
- * barely need it. In fast mode it's turned off (2.5 Flash), kept to the
- * minimum (2.5 Pro can't turn it off) or set low (Gemini 3).
- */
-function thinkingFor(model: string): Record<string, unknown> | undefined {
-  if (!getSettings().fastMode || noThinkingConfig.has(model)) return undefined;
-  if (/^gemini-2\.5-flash/.test(model)) return { thinkingBudget: 0 };
-  if (/^gemini-2\.5-pro/.test(model)) return { thinkingBudget: 128 };
-  if (/^gemini-[3-9]/.test(model)) return { thinkingLevel: 'low' };
-  return undefined;
-}
-
-/** Models that rejected a thinking setting; they're asked without one from then on. */
-const noThinkingConfig = new Set<string>();
-
 type GenerateResponse = {
   candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
   promptFeedback?: { blockReason?: string };
@@ -184,34 +195,15 @@ export async function generateJson<T>(
   opts: { temperature?: number; system?: string; history?: Turn[] } = {},
 ): Promise<T> {
   const { generate } = await ensureModels();
-  const request = (thinkingConfig?: Record<string, unknown>) =>
-    call<GenerateResponse>(`models/${generate}:generateContent`, {
+  const data = await call<GenerateResponse>(`models/${generate}:generateContent`, {
       method: 'POST',
       body: JSON.stringify({
         ...(opts.system ? { systemInstruction: { parts: [{ text: opts.system }] } } : {}),
         contents: [...(opts.history ?? []), { role: 'user', parts }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: schema,
-          temperature: opts.temperature ?? 0.4,
-          ...(thinkingConfig ? { thinkingConfig } : {}),
-        },
+        // No thinking settings: each model thinks at its default level for the best answers.
+        generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: opts.temperature ?? 0.4 },
       }),
     });
-
-  const thinking = thinkingFor(generate);
-  let data: GenerateResponse;
-  try {
-    data = await request(thinking);
-  } catch (err) {
-    // A model that doesn't accept this thinking setting: remember, and ask again without it.
-    if (thinking && err instanceof GeminiError && err.status === 400 && /think/i.test(err.message)) {
-      noThinkingConfig.add(generate);
-      data = await request();
-    } else {
-      throw err;
-    }
-  }
   if (data.promptFeedback?.blockReason) {
     throw new GeminiError(`Gemini declined this request (${data.promptFeedback.blockReason}). Try a different image or wording.`);
   }

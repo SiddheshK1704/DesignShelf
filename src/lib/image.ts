@@ -13,8 +13,7 @@ export interface ProcessedImage {
 
 const FULL_MAX = 2000;
 const THUMB_MAX = 480;
-// Gemini reads images in 768px tiles; one tile is quicker and plenty for tagging.
-const AI_MAX = 768;
+const AI_MAX = 1024;
 
 export const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif', 'image/bmp'];
 

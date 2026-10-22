@@ -53,7 +53,7 @@ function KeySection() {
       const picked = pickModels(models);
       updateSettings({
         geminiKey: key,
-        models: { generate: s.models.generate ?? picked.generate[0]?.name, embed: s.models.embed ?? picked.embed[0]?.name },
+        models: { ...s.models, generate: s.models.generate ?? picked.generate[0]?.name, embed: s.models.embed ?? picked.embed[0]?.name },
       });
       setStatus({ kind: 'ok', text: `Key saved and working. ${models.length} models available.` });
     } catch (err) {
@@ -167,10 +167,18 @@ function ModelsSection() {
           <div className="set__grid">
             <ModelSelect
               label="Tagging and assistant"
-              hint="Reads images and writes tags."
-              value={s.models.generate}
+              hint="Reads images, writes tags and answers. Automatic always uses the newest Flash model your key can reach."
+              value={s.models.generateAuto !== false ? 'auto' : s.models.generate}
               options={picked?.generate ?? []}
-              onChange={(generate) => updateSettings({ models: { ...s.models, generate } })}
+              auto={picked?.generate[0] ? `Automatic · ${picked.generate[0].displayName}` : 'Automatic'}
+              onChange={(v) =>
+                updateSettings({
+                  models:
+                    v === 'auto'
+                      ? { ...s.models, generateAuto: true, generate: picked?.generate[0]?.name ?? s.models.generate }
+                      : { ...s.models, generateAuto: false, generate: v },
+                })
+              }
             />
             <ModelSelect
               label="Search embeddings"
@@ -180,13 +188,6 @@ function ModelsSection() {
               onChange={(embed) => updateSettings({ models: { ...s.models, embed } })}
             />
           </div>
-          <label className="check set__fast">
-            <input type="checkbox" checked={s.fastMode} onChange={(e) => updateSettings({ fastMode: e.target.checked })} />
-            <span>
-              Faster answers
-              <span className="field__hint"> Turns the model’s thinking off or down. Replies come much sooner; tags and answers are usually just as good. Turn it off for slower, more considered design docs.</span>
-            </span>
-          </label>
           <div className="set__actions">
             <button type="button" className="btn btn--quiet" onClick={detect} disabled={loading}>
               {loading ? 'Checking…' : 'Refresh model list'}
@@ -217,21 +218,28 @@ function ModelSelect({
   hint,
   value,
   options,
+  auto,
   onChange,
 }: {
   label: string;
   hint: string;
   value?: string;
   options: GeminiModel[];
+  /** Label for an "automatic" choice, offered when set. */
+  auto?: string;
   onChange: (v: string) => void;
 }) {
   const id = useId();
-  const list = value && !options.some((o) => o.name === value) ? [{ name: value, displayName: value, methods: [] }, ...options] : options;
+  const list =
+    value && value !== 'auto' && !options.some((o) => o.name === value)
+      ? [{ name: value, displayName: value, methods: [] }, ...options]
+      : options;
   return (
     <label className="field" htmlFor={id}>
       <span className="field__label">{label}</span>
       <select id={id} className="input" value={value ?? ''} onChange={(e) => onChange(e.target.value)} disabled={!list.length}>
         {!list.length && <option value="">Loading models…</option>}
+        {auto && list.length > 0 && <option value="auto">{auto}</option>}
         {list.map((m) => (
           <option key={m.name} value={m.name}>
             {m.displayName} ({m.name})
