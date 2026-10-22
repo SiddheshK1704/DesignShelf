@@ -43,6 +43,67 @@ export interface ImportResult {
   docs: number;
 }
 
+export interface CopyResult {
+  copied: number;
+  skipped: number;
+  failed: { name: string; message: string }[];
+  boards: number;
+  docs: number;
+}
+
+/**
+ * Copy one library into another (used to move this browser's library into
+ * an account). Images keep their ids, so running it twice doesn't
+ * duplicate anything. The source is left untouched.
+ */
+export async function copyLibrary(from: LibraryStore, to: LibraryStore, onProgress?: (done: number, total: number) => void): Promise<CopyResult> {
+  const images = await from.listImages();
+  const existing = new Set((await to.listImages()).map((i) => i.id));
+  const result: CopyResult = { copied: 0, skipped: 0, failed: [], boards: 0, docs: 0 };
+
+  for (const [i, img] of images.entries()) {
+    onProgress?.(i, images.length);
+    if (existing.has(img.id)) {
+      result.skipped++;
+      continue;
+    }
+    try {
+      const [full, thumb] = await Promise.all([from.getBlob(img.id, 'full'), from.getBlob(img.id, 'thumb')]);
+      if (!full || !thumb) throw new Error('The image data is missing in this browser.');
+      // Images mid-tagging are copied as waiting; they can be tagged again there.
+      const status = img.status === 'tagging' || img.status === 'pending' ? 'untagged' : img.status;
+      await to.addImage({ ...img, status }, { full, thumb });
+      existing.add(img.id);
+      result.copied++;
+    } catch (err) {
+      result.failed.push({ name: img.name, message: (err as Error).message });
+    }
+  }
+  onProgress?.(images.length, images.length);
+
+  // Boards are matched by name; links only for images that made it across.
+  const targetBoards = await to.listBoards();
+  const idMap = new Map<string, string>();
+  for (const b of await from.listBoards()) {
+    const match = targetBoards.find((x) => x.name === b.name) ?? (await to.createBoard(b.name));
+    if (!targetBoards.includes(match)) result.boards++;
+    idMap.set(b.id, match.id);
+  }
+  const links = await from.listBoardImages();
+  for (const [oldId, newId] of idMap) {
+    const ids = links.filter((l) => l.boardId === oldId && existing.has(l.imageId)).map((l) => l.imageId);
+    if (ids.length) await to.addToBoard(newId, ids);
+  }
+
+  const haveDocs = new Set((await to.listDocs()).map((d) => d.id));
+  for (const d of await from.listDocs()) {
+    if (haveDocs.has(d.id)) continue;
+    await to.saveDoc({ ...d, boardId: d.boardId ? idMap.get(d.boardId) : undefined, shelfIds: d.shelfIds.filter((id) => existing.has(id)) });
+    result.docs++;
+  }
+  return result;
+}
+
 export async function importLibrary(store: LibraryStore, file: File): Promise<ImportResult> {
   let data: ExportFile;
   try {

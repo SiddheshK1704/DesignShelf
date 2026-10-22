@@ -5,6 +5,7 @@
  */
 import { generateJson, withBackoff, type Part, type Turn } from './gemini';
 import { search } from './search';
+import type { LibraryStore } from './store/LibraryStore';
 import type { ImageRecord } from './types';
 
 export interface AskAnswer {
@@ -99,12 +100,19 @@ export function toHistory(question: string, imageCount: number, answer: AskAnswe
  * suggested query go through the usual hybrid search, and the best score
  * per image wins.
  */
-export async function shelfMatches(images: ImageRecord[], question: string, answer: AskAnswer, useEmbeddings: boolean, count = 6) {
+export async function shelfMatches(
+  images: ImageRecord[],
+  question: string,
+  answer: AskAnswer,
+  useEmbeddings: boolean,
+  count = 6,
+  store?: Pick<LibraryStore, 'matchImages'>,
+) {
   if (!images.length) return [];
   const texts = [question, ...answer.queries.map((q) => q.query)].filter((t) => t.trim());
   const best = new Map<string, { image: ImageRecord; score: number }>();
   for (const t of texts) {
-    const r = await search(images, t, { useEmbeddings });
+    const r = await search(images, t, { useEmbeddings, store });
     for (const h of r.hits) {
       const cur = best.get(h.image.id);
       if (!cur || h.score > cur.score) best.set(h.image.id, { image: h.image, score: h.score });

@@ -100,7 +100,7 @@ export function DocPanel() {
         (ms) => setWaitUntil(Date.now() + ms),
       );
       setStage('references');
-      const shelfIds = await pickReferences(images, brief, doc, boardRecords.map((r) => r.id), Boolean(settings.geminiKey));
+      const shelfIds = await pickReferences(images, brief, doc, boardRecords.map((r) => r.id), Boolean(settings.geminiKey), store);
       const now = Date.now();
       setCurrent({
         saved: { id: newId(), title: doc.title, brief: brief.trim(), lensId, boardId: board?.id, doc, shelfIds, diagram, createdAt: now, updatedAt: now },

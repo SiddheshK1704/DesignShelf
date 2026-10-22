@@ -4,6 +4,7 @@
  * only when there is no key or no embeddings yet.
  */
 import { embed } from './gemini';
+import type { LibraryStore } from './store/LibraryStore';
 import type { ImageRecord } from './types';
 
 const KEYWORD_WEIGHT = 0.15;
@@ -61,23 +62,41 @@ export interface SearchResult {
   note?: string;
 }
 
-export async function search(images: ImageRecord[], query: string, opts: { useEmbeddings: boolean }): Promise<SearchResult> {
+/** In account mode vectors stay in the database; a model name means one exists. */
+const hasVector = (i: ImageRecord) => Boolean(i.embedding?.length || i.embeddingModel);
+
+export async function search(
+  images: ImageRecord[],
+  query: string,
+  opts: { useEmbeddings: boolean; store?: Pick<LibraryStore, 'matchImages'> },
+): Promise<SearchResult> {
   const words = terms(query);
-  const withVectors = images.filter((i) => i.embedding?.length);
+  const withVectors = images.filter(hasVector);
   let qv: number[] | null = null;
   let note: string | undefined;
+  let serverScores: Map<string, number> | null = null;
 
   if (opts.useEmbeddings && withVectors.length) {
     try {
       qv = await embedQuery(query);
+      // Account mode: similarity is computed in the database by match_images.
+      if (opts.store?.matchImages) {
+        const rows = await opts.store.matchImages(qv, Math.min(200, withVectors.length));
+        serverScores = new Map(rows.map((r) => [r.id, r.similarity]));
+      }
     } catch (err) {
+      qv = null;
       note = `Searching by keyword only: ${(err as Error).message}`;
     }
   }
 
   const scored = images.map((image) => {
     const keyword = keywordScore(image, words);
-    const semantic = qv && image.embedding?.length ? cosine(qv, image.embedding) : 0;
+    const semantic = serverScores
+      ? serverScores.get(image.id) ?? 0
+      : qv && image.embedding?.length
+        ? cosine(qv, image.embedding)
+        : 0;
     return { image, keyword, semantic, score: semantic + KEYWORD_WEIGHT * keyword };
   });
 

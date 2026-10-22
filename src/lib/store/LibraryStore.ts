@@ -26,6 +26,13 @@ export interface LibraryStore {
   saveDoc(doc: SavedDoc): Promise<void>;
   deleteDoc(id: string): Promise<void>;
 
+  /**
+   * Nearest images to a query vector, when the store can search on the
+   * server (Supabase's match_images). Local mode compares vectors in the
+   * browser instead.
+   */
+  matchImages?(queryEmbedding: number[], count: number): Promise<{ id: string; similarity: number }[]>;
+
   /** Remove every image, board and saved doc. */
   clear(): Promise<void>;
 

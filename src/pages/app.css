@@ -988,3 +988,28 @@
   margin: 0;
   color: var(--muted);
 }
+
+/* ---------- Copy to account ---------- */
+
+.copybar {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  background: var(--surface);
+  font-size: 15px;
+}
+
+.copybar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.copybar .ingest {
+  margin: 0;
+  border: 0;
+  padding: 0;
+}

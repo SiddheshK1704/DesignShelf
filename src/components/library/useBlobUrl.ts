@@ -8,7 +8,14 @@ export function blobUrl(store: LibraryStore, id: string, which: 'full' | 'thumb'
   const key = `${id}:${which}`;
   let hit = cache.get(key);
   if (!hit) {
-    hit = store.getBlob(id, which).then((b) => (b ? URL.createObjectURL(b) : undefined));
+    hit = store
+      .getBlob(id, which)
+      .then((b) => (b ? URL.createObjectURL(b) : undefined))
+      .catch(() => {
+        // Don't cache a failed download (e.g. offline); try again next time.
+        cache.delete(key);
+        return undefined;
+      });
     cache.set(key, hit);
   }
   return hit;
@@ -22,6 +29,12 @@ export function forgetBlobUrls(ids: string[]) {
       cache.delete(key);
     }
   }
+}
+
+/** Used when switching between the local and account libraries. */
+export function forgetAllBlobUrls() {
+  for (const hit of cache.values()) hit.then((u) => u && URL.revokeObjectURL(u)).catch(() => undefined);
+  cache.clear();
 }
 
 /** Loads an image URL, optionally only once `enabled` (e.g. when scrolled into view). */

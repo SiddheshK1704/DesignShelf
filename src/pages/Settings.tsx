@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { ConfirmDialog } from '../components/Dialog';
+import { useAuth } from '../components/AuthProvider';
 import { useLibrary } from '../components/library/LibraryProvider';
 import { forgetBlobUrls } from '../components/library/useBlobUrl';
 import { listModels, pickModels, type GeminiModel } from '../lib/gemini';
@@ -16,7 +17,7 @@ export function Settings() {
       <header className="page__head">
         <div>
           <h1 className="page__title">Settings</h1>
-          <p className="muted">Everything here is stored in this browser only.</p>
+          <p className="muted">Your key, models and lenses are stored in this browser only.</p>
         </div>
       </header>
       <nav className="toc" aria-label="On this page">
@@ -146,8 +147,9 @@ function ModelsSection() {
   }, [s.geminiKey]);
 
   const picked = models ? pickModels(models) : null;
-  const stale = images.filter((i) => i.embedding?.length && i.embeddingModel && i.embeddingModel !== s.models.embed);
-  const missing = images.filter((i) => (i.status === 'ready' || i.isDemo) && !i.embedding?.length);
+  // In account mode the vectors stay in the database, so the model name is what says one exists.
+  const stale = images.filter((i) => i.embeddingModel && i.embeddingModel !== s.models.embed);
+  const missing = images.filter((i) => (i.status === 'ready' || i.isDemo) && !i.embeddingModel && !i.embedding?.length);
 
   return (
     <section id="models" className="set">
@@ -385,6 +387,8 @@ function LensEditor({ lens, onCancel, onSave }: { lens: Lens; onCancel: () => vo
 
 function DataSection() {
   const { store, images, boards } = useLibrary();
+  const { email } = useAuth();
+  const where = store.kind === 'cloud' ? `your account (${email})` : 'this browser';
   const [usage, setUsage] = useState<string>();
   const [busy, setBusy] = useState<string>();
   const [message, setMessage] = useState<{ ok: boolean; text: string }>();
@@ -433,7 +437,7 @@ function DataSection() {
     <section id="data" className="set">
       <h2 className="set__title">Your data</h2>
       <p>
-        Your library is stored in this browser: {images.length} {images.length === 1 ? 'image' : 'images'} and {boards.length}{' '}
+        Your library is stored in {where}: {images.length} {images.length === 1 ? 'image' : 'images'} and {boards.length}{' '}
         {boards.length === 1 ? 'board' : 'boards'}
         {usage ? `, ${usage}` : ''}. Export it to keep a backup or move it to another browser.
       </p>
@@ -469,7 +473,7 @@ function DataSection() {
 
       <div className="set__danger">
         <h3 className="set__h3">Delete everything</h3>
-        <p className="muted">Removes every image, board and saved doc from this browser. Export first if you might want them back.</p>
+        <p className="muted">Removes every image, board and saved doc from {where}. Export first if you might want them back.</p>
         <button type="button" className="btn btn--danger" onClick={() => setConfirm(true)}>
           Delete all data
         </button>
@@ -478,7 +482,7 @@ function DataSection() {
       <ConfirmDialog
         open={confirm}
         title="Delete all data?"
-        body={<p>This removes {images.length} images and {boards.length} boards from this browser. It can’t be undone.</p>}
+        body={<p>This removes {images.length} images and {boards.length} boards from {where}. It can’t be undone.</p>}
         confirmLabel="Delete everything"
         danger
         typeToConfirm="delete"

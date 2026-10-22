@@ -52,7 +52,7 @@ export function AskPanel() {
       // Only the last few exchanges go along as context.
       const history = getChat().history.slice(-8);
       const answer = await ask(userMsg.text, inline, history, (ms) => updateMsg(replyId, { waitingUntil: Date.now() + ms }));
-      const shelf = await shelfMatches(images, userMsg.text, answer, Boolean(settings.geminiKey)).catch(() => []);
+      const shelf = await shelfMatches(images, userMsg.text, answer, Boolean(settings.geminiKey), 6, store).catch(() => []);
       updateMsg(replyId, { status: 'done', answer, shelf, waitingUntil: undefined });
       setChat((s) => ({ ...s, history: [...s.history, ...toHistory(userMsg.text, userMsg.attachments.length, answer)] }));
     } catch (err) {

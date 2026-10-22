@@ -4,6 +4,7 @@ import { ConfirmDialog } from '../components/Dialog';
 import { FilterRail, matchesFilters } from '../components/library/FilterRail';
 import { ImageDialog } from '../components/library/ImageDialog';
 import { ImageGrid } from '../components/library/ImageGrid';
+import { CopyToAccount } from '../components/library/CopyToAccount';
 import { IngestBar } from '../components/library/IngestBar';
 import { useLibrary } from '../components/library/LibraryProvider';
 import { forgetBlobUrls } from '../components/library/useBlobUrl';
@@ -43,13 +44,13 @@ export function Library() {
     }
     let alive = true;
     setSearching(true);
-    search(images, q, { useEmbeddings: Boolean(settings.geminiKey) })
+    search(images, q, { useEmbeddings: Boolean(settings.geminiKey), store })
       .then((r) => alive && setResult(r))
       .finally(() => alive && setSearching(false));
     return () => {
       alive = false;
     };
-  }, [q, images, settings.geminiKey]);
+  }, [q, images, settings.geminiKey, store]);
 
   const shown = useMemo(() => {
     const base = result ? result.hits.map((h) => h.image) : images;
@@ -270,6 +271,7 @@ export function Library() {
         </button>
       </form>
 
+      <CopyToAccount />
       <IngestBar />
 
       {error && (
@@ -281,6 +283,7 @@ export function Library() {
       {empty ? (
         <EmptyLibrary
           hasKey={Boolean(settings.geminiKey)}
+          inAccount={store.kind === 'cloud'}
           onAdd={() => fileRef.current?.click()}
           onSamples={onSamples}
           sampleState={sampleState}
@@ -413,11 +416,13 @@ export function Library() {
 
 function EmptyLibrary({
   hasKey,
+  inAccount,
   onAdd,
   onSamples,
   sampleState,
 }: {
   hasKey: boolean;
+  inAccount: boolean;
   onAdd: () => void;
   onSamples: () => void;
   sampleState: string;
@@ -425,7 +430,7 @@ function EmptyLibrary({
   return (
     <div className="empty reg-frame">
       <h2>Your shelf is empty.</h2>
-      <p>Add images by dropping them on this page, choosing files, or pasting from the clipboard. They’re stored in this browser.</p>
+      <p>Add images by dropping them on this page, choosing files, or pasting from the clipboard. {inAccount ? 'They’re saved to your account, so you can reach them from any device.' : 'They’re stored in this browser.'}</p>
       <p className="muted">
         {hasKey
           ? 'Each image is tagged for form, material, colour and mood, so you can search by feel straight away.'

@@ -8,6 +8,7 @@ import { generateJson, withBackoff, type Part } from './gemini';
 import { lookFurther } from './lookFurther';
 import { checkMermaid, cleanMermaid } from './mermaid';
 import { searchOpenImages } from './sources';
+import type { LibraryStore } from './store/LibraryStore';
 import type { DesignDoc, ImageRecord, Lens, SavedDoc } from './types';
 
 const ITEM = {
@@ -210,7 +211,14 @@ export async function writeDoc(
 }
 
 /** Board references first, then the best hybrid-search matches from the rest of the shelf. */
-export async function pickReferences(images: ImageRecord[], brief: string, doc: DesignDoc, boardIds: string[], useEmbeddings: boolean) {
+export async function pickReferences(
+  images: ImageRecord[],
+  brief: string,
+  doc: DesignDoc,
+  boardIds: string[],
+  useEmbeddings: boolean,
+  store?: Pick<LibraryStore, 'matchImages'>,
+) {
   const fromBoard = boardIds.slice(0, 8);
   const matches = await shelfMatches(
     images.filter((i) => !fromBoard.includes(i.id)),
@@ -218,6 +226,7 @@ export async function pickReferences(images: ImageRecord[], brief: string, doc: 
     { summary: '', directions: [], queries: doc.queries },
     useEmbeddings,
     6,
+    store,
   ).catch(() => []);
   return [...fromBoard, ...matches.map((m) => m.id)];
 }

@@ -1,16 +1,17 @@
 /**
  * Account handling. Sign-in and sign-up both use a one-time email link, so
  * there are no passwords. "Local" mode keeps everything in this browser.
- *
- * Supabase is wired in later; until VITE_SUPABASE_* are set, sending a link
- * fails with a clear message and local mode is the way in.
  */
+import { supabase } from './supabase';
 
 export type AuthMode = 'signed-out' | 'local' | 'signed-in';
 
 export interface AuthState {
   mode: AuthMode;
   email?: string;
+  userId?: string;
+  /** False until a stored session has been checked, so screens don't flash the wrong library. */
+  ready: boolean;
 }
 
 export const MODE_KEY = 'designshelf.mode';
@@ -18,16 +19,16 @@ export const MODE_KEY = 'designshelf.mode';
 export class AuthError extends Error {}
 
 export function isAccountsConfigured(): boolean {
-  return Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+  return supabase !== null;
 }
 
-export function loadAuthState(): AuthState {
+export function loadLocalMode(): AuthMode {
   try {
-    if (localStorage.getItem(MODE_KEY) === 'local') return { mode: 'local' };
+    if (localStorage.getItem(MODE_KEY) === 'local') return 'local';
   } catch {
     // Storage blocked: start signed out.
   }
-  return { mode: 'signed-out' };
+  return 'signed-out';
 }
 
 export function saveLocalMode(on: boolean) {
@@ -49,14 +50,33 @@ export function validateEmail(email: string): string | null {
 
 /**
  * Send a one-time sign-in link. With `createAccount`, a new account is made
- * if none exists for this email.
+ * if none exists for this email; without it, unknown emails are refused.
  */
-export async function sendEmailLink(_email: string, _opts: { createAccount: boolean }): Promise<void> {
-  if (!isAccountsConfigured()) {
+export async function sendEmailLink(email: string, opts: { createAccount: boolean }): Promise<void> {
+  if (!supabase) {
     throw new AuthError(
-      'Accounts are not connected yet, so no email was sent. Choose "Continue without an account" to use Design Shelf in this browser now.',
+      'Accounts are not connected in this build, so no email was sent. Choose "Continue without an account" to use Design Shelf in this browser.',
     );
   }
-  // Replaced by supabase.auth.signInWithOtp in the Supabase milestone.
-  throw new AuthError('Sign-in is not available in this build yet. Continue without an account for now.');
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: opts.createAccount, emailRedirectTo: `${window.location.origin}/library` },
+  });
+  if (!error) return;
+
+  const msg = error.message.toLowerCase();
+  if (msg.includes('signups not allowed') || msg.includes('user not found')) {
+    throw new AuthError('No account uses that email yet. Choose “Create an account” instead.');
+  }
+  if (error.status === 429 || msg.includes('rate limit') || msg.includes('security purposes')) {
+    throw new AuthError('Too many links were requested. Wait a minute, then try again.');
+  }
+  if (msg.includes('redirect')) {
+    throw new AuthError('This address isn’t allowed to receive sign-in links. Add it under Authentication > URL Configuration in Supabase.');
+  }
+  throw new AuthError(`The link could not be sent: ${error.message}`);
+}
+
+export async function signOutAccount(): Promise<void> {
+  await supabase?.auth.signOut();
 }
